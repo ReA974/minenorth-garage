@@ -2,10 +2,14 @@ package com.minenorth.vehicles.pompe;
 
 import com.minenorth.vehicles.VehiclesMod;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -110,6 +114,84 @@ final class MtsPump {
         } catch (ReflectiveOperationException e) {
             return false;
         }
+    }
+
+    // ------------------------------------------------------------------ pompe limitée / illimitée
+    // MTS : à chaque tick, ATileEntityFuelPump.update() met isCreative = true, puis false si un emplacement de son inventaire de carburant
+    // (fuelItems) contient un objet. Une pompe est donc illimitée tant que cet inventaire est vide ; pour la limiter on y pose un objet repère
+    // (barrière marquée), que seul un OP peut voir (le menu MineNorth remplace l'écran natif).
+
+    private static boolean markerInit, markerOk;
+    private static Field fuelItemsField, wrappedStack;
+    private static Constructor<?> wrapperCtor;
+    private static Method invGet, invSet, invSize, stackEmpty;
+    private static final String MARKER_TAG = "mn_pump_limit";
+
+    private static boolean markerInit() {
+        if (markerInit) return markerOk;
+        markerInit = true;
+        if (!init()) return false;
+        try {
+            Class<?> abs = Class.forName("minecrafttransportsimulator.blocks.tileentities.instances.ATileEntityFuelPump");
+            fuelItemsField = abs.getField("fuelItems");
+            Class<?> inv = Class.forName("minecrafttransportsimulator.entities.instances.EntityInventoryContainer");
+            Class<?> wrapIf = Class.forName("minecrafttransportsimulator.mcinterface.IWrapperItemStack");
+            invGet = inv.getMethod("getStack", int.class);
+            invSet = inv.getMethod("setStack", wrapIf, int.class);
+            invSize = inv.getMethod("getSize");
+            stackEmpty = wrapIf.getMethod("isEmpty");
+            Class<?> w = Class.forName("mcinterface1201.WrapperItemStack");
+            wrapperCtor = w.getDeclaredConstructor(ItemStack.class);
+            wrapperCtor.setAccessible(true);
+            for (Field f : w.getDeclaredFields()) {
+                if (f.getType() == ItemStack.class) {
+                    f.setAccessible(true);
+                    wrappedStack = f;
+                }
+            }
+            markerOk = true;
+        } catch (ReflectiveOperationException | LinkageError e) {
+            VehiclesMod.LOGGER.warn("[Pompe] Inventaire de carburant MTS introuvable : /pompe limiter indisponible.", e);
+        }
+        return markerOk;
+    }
+
+    private static boolean isMarker(Object wrapper) throws ReflectiveOperationException {
+        if (wrappedStack == null || wrapper == null) return false;
+        ItemStack st = (ItemStack) wrappedStack.get(wrapper);
+        return st != null && st.is(Items.BARRIER) && st.hasTag() && st.getTag().contains(MARKER_TAG);
+    }
+
+    /** Vrai si l'inventaire de carburant de la pompe contient un objet (repère ou autre) : MTS la traite alors comme limitée. */
+    static boolean hasFuelItems(Object pump) throws ReflectiveOperationException {
+        if (!markerInit()) return false;
+        Object inv = fuelItemsField.get(pump);
+        for (int i = 0; i < (Integer) invSize.invoke(inv); i++) {
+            if (!(Boolean) stackEmpty.invoke(invGet.invoke(inv, i))) return true;
+        }
+        return false;
+    }
+
+    /** limited = true : pose l'objet repère (la pompe devient limitée à son réservoir). false : le retire (illimitée si l'inventaire est vide). */
+    static boolean setLimited(Object pump, boolean limited) throws ReflectiveOperationException {
+        if (!markerInit()) return false;
+        Object inv = fuelItemsField.get(pump);
+        int n = (Integer) invSize.invoke(inv);
+        if (limited) {
+            if (!hasFuelItems(pump)) {
+                ItemStack marker = new ItemStack(Items.BARRIER);
+                marker.getOrCreateTag().putBoolean(MARKER_TAG, true);
+                marker.setHoverName(Component.literal("Pompe limitée (MineNorth)"));
+                invSet.invoke(inv, wrapperCtor.newInstance(marker), 0);
+            }
+            creativeField.setBoolean(pump, false);
+        } else {
+            for (int i = 0; i < n; i++) {
+                if (isMarker(invGet.invoke(inv, i))) invSet.invoke(inv, wrapperCtor.newInstance(ItemStack.EMPTY), i);
+            }
+            if (!hasFuelItems(pump)) creativeField.setBoolean(pump, true);
+        }
+        return true;
     }
 
     // ------------------------------------------------------------------ réservoirs (pompe ou véhicule : même classe)

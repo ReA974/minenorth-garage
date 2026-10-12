@@ -26,10 +26,11 @@ public final class VehicleConfig {
     public static final ForgeConfigSpec.ConfigValue<String> POLICE_TAG;
     public static final ForgeConfigSpec.BooleanValue UNSTUCK_REQUIRE_BUGGED;
     public static final ForgeConfigSpec.IntValue UNSTUCK_RADIUS, UNSTUCK_COOLDOWN;
-    public static final ForgeConfigSpec.DoubleValue PUMP_RADIUS, PUMP_PRICE_LITER, PUMP_LITERS_PER_ITEM, PUMP_ITEM_PRICE;
+    public static final ForgeConfigSpec.DoubleValue PUMP_RADIUS, PUMP_PRICE_LITER, PUMP_LITERS_PER_ITEM, PUMP_ITEM_PRICE, PUMP_CAPACITY;
+    public static final ForgeConfigSpec.BooleanValue PUMP_REPLACE_FUEL;
     public static final ForgeConfigSpec.IntValue PUMP_MB_PER_LITER;
     public static final ForgeConfigSpec.BooleanValue CHARGERS_ALWAYS_FULL;
-    public static final ForgeConfigSpec.ConfigValue<String> PUMP_ITEM, PUMP_FLUID;
+    public static final ForgeConfigSpec.ConfigValue<String> PUMP_ITEM, PUMP_FLUID, PUMP_FLUID_MOD;
     public static final ForgeConfigSpec.DoubleValue UNSTUCK_TOLERANCE;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> UNSTUCK_ROADS;
     public static final ForgeConfigSpec.BooleanValue REGISTRY_JSON;
@@ -133,6 +134,9 @@ public final class VehicleConfig {
                 .defineInRange("vehicleRadius", 8.0, 2.0, 32.0);
         PUMP_MB_PER_LITER = b.comment("Combien de mB de fluide MTS font 1 « litre » (MTS affiche le stock en seaux de 1000 mB : 1000 = 1 litre par seau)")
                 .defineInRange("mbPerLiter", 1000, 1, 100000);
+        PUMP_CAPACITY = b.comment("Capacité du réservoir d'une pompe, en litres (MTS en donne 35 par défaut, dans la fiche du décor). Appliquée à chaque utilisation :",
+                        "0 = capacité d'origine de MTS. Ne fait que l'augmenter. Le plafond technique est d'environ 2 milliards de mB.")
+                .defineInRange("capacityLiters", 10000.0, 0.0, 2000000.0);
         PUMP_PRICE_LITER = b.comment("PRIX DE VENTE du carburant au conducteur, en € par litre (0 = gratuit). L'argent va au trésor.")
                 .defineInRange("pricePerLiter", 3.0, 0.0, 100000.0);
         PUMP_ITEM = b.comment("Item versé pour remplir la pompe (essence raffinée du mod Récolte)")
@@ -143,6 +147,12 @@ public final class VehicleConfig {
                 .defineInRange("pricePerItem", 4.0, 0.0, 100000.0);
         PUMP_FLUID = b.comment("Fluide MTS mis dans une pompe vide quand on la remplit (doit être accepté par les moteurs : voir la config MTS)")
                 .define("fluid", "gasoline");
+        PUMP_REPLACE_FUEL = b.comment("Un réservoir MTS ne mélange pas deux fluides. Les véhicules reçoivent souvent du « lava » (carburant universel de MTS) à l'achat :",
+                        "true = le plein vide d'abord le carburant d'un autre type (lava...) puis met celui de la pompe ; false = refus.")
+                .define("remplacerCarburant", true);
+        PUMP_FLUID_MOD = b.comment("Origine (« mod ») du fluide MTS d'une pompe vide qu'on remplit : s'affiche dans MTS (ex. gasoline de minenorth_harvest).",
+                        "Sans effet sur les pleins : les véhicules acceptent le carburant quelle que soit son origine.")
+                .define("fluidMod", "minenorth_harvest");
         CHARGERS_ALWAYS_FULL = b.comment("Bornes de recharge électriques MTS (décor « charger », ex. gvp ev_charger) : toujours pleines, 24h/24, sans courant ni achat.",
                         "Appliqué toutes les secondes aux bornes proches d'un joueur. false = fonctionnement MTS normal (alimentation Forge Energy).")
                 .define("chargersAlwaysFull", true);

@@ -32,8 +32,8 @@ public final class PompeMenu {
     private PompeMenu() {}
 
     /** Résultat du calcul d'un plein : soit error != null, soit les quantités. */
-    private record Quote(Entity vehicle, Object pumpTank, Object vehicleTank, String fluid, boolean creative, double mb, int price, String error) {
-        static Quote fail(String why) { return new Quote(null, null, null, "", false, 0, 0, why); }
+    private record Quote(Entity vehicle, Object pumpTank, Object vehicleTank, String fluid, boolean creative, boolean replace, double mb, int price, String error) {
+        static Quote fail(String why) { return new Quote(null, null, null, "", false, false, 0, 0, why); }
     }
 
     private static double mbPerLiter() { return Math.max(1, VehicleConfig.PUMP_MB_PER_LITER.get()); }
@@ -86,15 +86,15 @@ public final class PompeMenu {
             Object veh = MtsPump.vehicle(v);
             if (!MtsPump.accepts(veh, fluid)) return Quote.fail("Ce véhicule n'accepte pas ce carburant (" + fluid + ").");
             Object vtank = MtsPump.vehicleTank(veh);
-            double can = MtsPump.fill(vtank, fluid, MtsPump.WILDCARD, MtsPump.max(vtank), false);
+            // un réservoir ne mélange pas deux fluides : un autre carburant (souvent « lava », mis à l'achat) est vidé avant le plein
+            String inside = MtsPump.fluid(vtank);
+            boolean other = !inside.isEmpty() && !inside.equalsIgnoreCase(fluid) && MtsPump.level(vtank) > 0;
+            if (other && !VehicleConfig.PUMP_REPLACE_FUEL.get())
+                return Quote.fail("Le réservoir contient déjà un autre carburant (" + inside + ").");
+            double can = other ? MtsPump.max(vtank) : MtsPump.fill(vtank, fluid, MtsPump.WILDCARD, MtsPump.max(vtank), false);
             double mb = creative ? can : Math.min(can, stock);
-            if (mb < 1) {
-                String inside = MtsPump.fluid(vtank);
-                if (!inside.isEmpty() && !inside.equalsIgnoreCase(fluid) && MtsPump.level(vtank) > 0)
-                    return Quote.fail("Le réservoir contient déjà un autre carburant (" + inside + ").");
-                return Quote.fail("Le réservoir est déjà plein.");
-            }
-            return new Quote(v, ptank, vtank, fluid, creative, mb, priceFor(mb / mbPerLiter()), null);
+            if (mb < 1) return Quote.fail("Le réservoir est déjà plein.");
+            return new Quote(v, ptank, vtank, fluid, creative, other, mb, priceFor(mb / mbPerLiter()), null);
         } catch (ReflectiveOperationException | RuntimeException e) {
             VehiclesMod.LOGGER.warn("[Pompe] Calcul du plein impossible", e);
             return Quote.fail("Erreur avec cette pompe (voir la console).");
@@ -134,7 +134,7 @@ public final class PompeMenu {
             items[11] = Gui.item(Items.MINECART, "&a&lFaire le plein",
                     "&7Véhicule : &f" + q.vehicle().getDisplayName().getString(),
                     "&7Quantité : &f" + fmt(q.mb() / perL) + " L",
-                    "&7Prix : &a" + q.price() + "€", "&8Clique pour choisir le paiement");
+                    "&7Prix : &a" + q.price() + "€", q.replace() ? "&8Le carburant du réservoir est remplacé" : "&8Clique pour choisir le paiement");
         } else {
             items[11] = Gui.item(Items.BARRIER, "&c&lFaire le plein", "&c" + q.error());
         }
@@ -201,7 +201,7 @@ public final class PompeMenu {
             return;
         }
         try {
-            double got = MtsPump.transfer(q.pumpTank(), q.vehicleTank(), q.fluid(), q.mb(), q.creative());
+            double got = MtsPump.transfer(q.pumpTank(), q.vehicleTank(), q.fluid(), q.mb(), q.creative(), q.replace());
             if (got <= 0) {
                 Payment.refund(p, q.price(), method, den, "pompe:carburant");
                 Msg.send(p, "&cLe véhicule n'a rien pris : paiement annulé.");
@@ -291,7 +291,7 @@ public final class PompeMenu {
                 Msg.send(p, "&cCette pompe contient déjà du " + cur + " : impossible d'y verser de l'" + want + ".");
                 return;
             }
-            String mod = level > 0 ? MtsPump.mod(tank) : "";
+            String mod = level > 0 ? MtsPump.mod(tank) : VehicleConfig.PUMP_FLUID_MOD.get();
             double mbItem = VehicleConfig.PUMP_LITERS_PER_ITEM.get() * mbPerLiter();
             int have = count(p, item);
             if (have <= 0) {
@@ -302,7 +302,14 @@ public final class PompeMenu {
             double sim = MtsPump.fill(tank, want, mod, n * mbItem, false);        // simulation : place réellement disponible
             n = Math.min(n, (int) Math.floor(sim / mbItem + 1e-9));
             if (n <= 0) {
-                Msg.send(p, "&cLa pompe est pleine.");
+                double max = MtsPump.max(tank);
+                double room = max - level;
+                String why = !cur.isEmpty() && !cur.equalsIgnoreCase(want) ? "elle contient du " + cur + " (pas de " + want + ")"
+                        : room < mbItem ? "il reste " + fmt(room / mbPerLiter()) + " L de place pour " + fmt(mbItem / mbPerLiter()) + " L par item"
+                        : "MTS refuse ce carburant";
+                VehiclesMod.LOGGER.info("[Pompe] Remplissage refusé : fluide='{}' mod='{}' niveau={} max={} place={} mB, 1 item={} mB, simulation={} mB, demandé={}",
+                        cur, MtsPump.mod(tank), level, max, room, mbItem, sim, requested);
+                Msg.send(p, "&cLa pompe ne peut pas recevoir d'essence : " + why + " (stock " + fmt(level / mbPerLiter()) + " / " + fmt(max / mbPerLiter()) + " L).");
                 return;
             }
             long cents = Math.round(VehicleConfig.PUMP_ITEM_PRICE.get() * 100.0) * n;

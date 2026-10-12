@@ -106,7 +106,47 @@ final class MtsPump {
 
     // ------------------------------------------------------------------ pompe
 
-    static Object tank(Object pump) throws ReflectiveOperationException { return getTank.invoke(pump); }
+    private static Field maxLevelField;
+
+    /**
+     * Réservoir de la pompe, avec la capacité de la config. MTS fixe la capacité (35 L par défaut) dans un champ privé final que le décor
+     * relit à chaque chargement : on le réhausse donc à chaque utilisation (seulement vers le haut).
+     */
+    static Object tank(Object pump) throws ReflectiveOperationException {
+        Object t = getTank.invoke(pump);
+        try {
+            double liters = com.minenorth.vehicles.config.VehicleConfig.PUMP_CAPACITY.get();
+            if (liters > 0) {
+                if (maxLevelField == null) {
+                    maxLevelField = Class.forName("minecrafttransportsimulator.entities.instances.EntityFluidTank").getDeclaredField("maxLevel");   // le réservoir de la pompe est une sous-classe anonyme
+                    maxLevelField.setAccessible(true);
+                }
+                long want = Math.min(Integer.MAX_VALUE, Math.round(liters * com.minenorth.vehicles.config.VehicleConfig.PUMP_MB_PER_LITER.get()));
+                if (want > maxLevelField.getInt(t)) maxLevelField.setInt(t, (int) want);
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            VehiclesMod.LOGGER.warn("[Pompe] Capacité de la pompe non modifiable : {}", e.toString());
+        }
+        unlockFill(pump);
+        return t;
+    }
+
+    /**
+     * Le réservoir d'une pompe NON illimitée (classe anonyme dans TileEntityFuelPump) ne se remplit que jusqu'à
+     * fuelPurchased - fuelDispensedThisPurchase - niveau : sans carburant « acheté » par le système de paiement natif de MTS, il refuse tout
+     * (fill renvoie 0). Le paiement se fait ici, par le menu MineNorth : on met donc le plafond d'achat très haut.
+     */
+    private static void unlockFill(Object pump) {
+        try {
+            if (creativeField.getBoolean(pump)) return;
+            if (purchasedField.getInt(pump) < 1_000_000_000) {
+                purchasedField.setInt(pump, 2_000_000_000);
+                dispensedField.setDouble(pump, 0);
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            VehiclesMod.LOGGER.warn("[Pompe] Plafond d'achat de la pompe non modifiable : {}", e.toString());
+        }
+    }
 
     static boolean creative(Object pump) {
         try {
@@ -242,7 +282,8 @@ final class MtsPump {
     }
 
     /** Réservoir du véhicule rempli avec le fluide de la pompe, puis réservoir de la pompe vidé d'autant. Renvoie les mB transférés. */
-    static double transfer(Object pumpTank, Object vehicleTank, String fluid, double mb, boolean creative) throws ReflectiveOperationException {
+    static double transfer(Object pumpTank, Object vehicleTank, String fluid, double mb, boolean creative, boolean replace) throws ReflectiveOperationException {
+        if (replace) drain(vehicleTank, max(vehicleTank), true);   // autre carburant : réservoir vidé (le fluide est effacé à 0)
         double filled = fill(vehicleTank, fluid, WILDCARD, mb, true);
         if (filled > 0 && !creative) drain(pumpTank, filled, true);
         return filled;

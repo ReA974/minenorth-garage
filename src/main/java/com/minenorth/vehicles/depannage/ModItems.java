@@ -23,19 +23,14 @@ public final class ModItems {
     public static final RegistryObject<Item> GARAGE_TABLET = ITEMS.register("tablette_garage", () -> new MenuItem(MenuItem.Kind.GARAGE));
     public static final RegistryObject<Item> SHOP_TABLET = ITEMS.register("tablette_concessionnaire", () -> new MenuItem(MenuItem.Kind.SHOP));
 
-    public static final RegistryObject<CreativeModeTab> GARAGE_TAB = TABS.register("garage", () -> CreativeModeTab.builder()
-            .title(Component.translatable("itemGroup." + VehiclesMod.MODID + ".garage"))
-            .icon(() -> new ItemStack(UNSTUCK_KIT.get()))
-            .displayItems((params, out) -> {
+    public static final net.minecraft.world.item.CreativeModeTab.DisplayItemsGenerator TAB_ITEMS = (params, out) -> {
                 out.accept(GARAGE_TABLET.get());
                 out.accept(SHOP_TABLET.get());
                 out.accept(ZONE_WAND.get());
                 out.accept(UNSTUCK_KIT.get());
-            })
-            .build());
+            };
 
     public static void register(IEventBus modBus) {
         ITEMS.register(modBus);
-        TABS.register(modBus);
     }
 }

@@ -22,6 +22,7 @@ import java.util.Locale;
  * /vendeur <id> [joueur]      : ouvre un vendeur (pour un PNJ : vendeur camions %player%)
  * /vendeurzone set <id>        : zone de pose de ce vendeur (se placer au centre)
  * /vendeurzone list | remove <id>
+ * /vendeuracces <id> tous | mairie | entreprise <nom> [direction] : concession réservée à la mairie ou à une entreprise
  */
 @Mod.EventBusSubscriber(modid = VehiclesMod.MODID)
 public final class ShopMultiCommands {
@@ -46,12 +47,54 @@ public final class ShopMultiCommands {
                             return 1;
                         }))));
 
+        // /vendeuracces <id> tous | mairie | entreprise <nom> [direction] : qui peut acheter dans cette concession (écrit dans shops.json)
+        e.getDispatcher().register(Commands.literal("vendeuracces").requires(ShopMultiCommands::admin)
+                .then(Commands.argument("shop", StringArgumentType.word()).suggests(SHOPS)
+                        .then(Commands.literal("tous").executes(c -> access(c, "tous", "", false)))
+                        .then(Commands.literal("mairie").executes(c -> access(c, "mairie", "", false)))
+                        .then(Commands.literal("entreprise")
+                                .then(Commands.argument("nom", StringArgumentType.string()).suggests(COMPANIES)
+                                        .executes(c -> access(c, "entreprise", StringArgumentType.getString(c, "nom"), false))
+                                        .then(Commands.literal("direction")
+                                                .executes(c -> access(c, "entreprise", StringArgumentType.getString(c, "nom"), true)))))));
+
         e.getDispatcher().register(Commands.literal("vendeurzone").requires(ShopMultiCommands::admin)
                 .then(Commands.literal("set").then(Commands.argument("shop", StringArgumentType.word()).suggests(SHOPS)
                         .executes(ShopMultiCommands::set)))
                 .then(Commands.literal("remove").then(Commands.argument("shop", StringArgumentType.word()).suggests(SHOPS)
                         .executes(ShopMultiCommands::remove)))
                 .then(Commands.literal("list").executes(c -> list(c.getSource().getPlayerOrException()))));
+    }
+
+    /** Entreprises actives (liste de complétion), entre guillemets si le nom contient un espace. */
+    private static final SuggestionProvider<CommandSourceStack> COMPANIES = (ctx, b) -> {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (String s : fr.minenorth.api.MineNorth.companies().activeCompanies(ctx.getSource().getServer())) {
+            String[] parts = s.split("\\|", 2);
+            if (parts.length == 2) names.add(parts[1].contains(" ") ? "\"" + parts[1] + "\"" : parts[1]);
+        }
+        return SharedSuggestionProvider.suggest(names, b);
+    };
+
+    private static int access(CommandContext<CommandSourceStack> c, String mode, String company, boolean direction) {
+        String id = StringArgumentType.getString(c, "shop").toLowerCase(Locale.ROOT);
+        if (mode.equals("entreprise")) {
+            int cid = fr.minenorth.api.MineNorth.companies().idOf(c.getSource().getServer(), company);
+            if (cid <= 0) {
+                c.getSource().sendFailure(net.minecraft.network.chat.Component.literal("Entreprise active introuvable : " + company));
+                return 0;
+            }
+            company = fr.minenorth.api.MineNorth.companies().name(c.getSource().getServer(), cid);   // nom exact
+        }
+        String err = ShopProfiles.setAccess(id, mode, company, direction);
+        if (err != null) {
+            c.getSource().sendFailure(net.minecraft.network.chat.Component.literal(err));
+            return 0;
+        }
+        String what = mode.equals("tous") ? "ouverte à tout le monde" : mode.equals("mairie") ? "réservée à la mairie (maire, agents et staff)"
+                : "réservée " + (direction ? "à la direction de " : "aux employés de ") + company + " (et au staff)";
+        c.getSource().sendSystemMessage(net.minecraft.network.chat.Component.literal("Concession \"" + id + "\" " + what + "."));
+        return 1;
     }
 
     private static int set(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

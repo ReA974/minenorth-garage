@@ -1082,3 +1082,5 @@
             Co-authored-by: Curle <curle@gemwire.uk>
             Co-authored-by: sciwhiz12 <arnoldnunag12@gmail.com>
 
+
+[13/10] Concessions reservees : /vendeuracces <id> tous | mairie | entreprise <nom> [direction] (complétion des entreprises) ; cles shops.json : mairie, company, companyDirection. Le staff passe toujours.

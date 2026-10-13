@@ -70,6 +70,7 @@ public final class ShopMulti {
             return;
         }
         if (!sp.service.isEmpty() && !dutyOk(p, sp.service)) return;
+        if (!accessOk(p, sp)) return;
         if (!ShopZoneData.get(p.getServer()).zones.containsKey(sp.id)) {
             Msg.send(p, "&cAucune zone de pose pour ce vendeur. Le staff doit faire /vendeurzone set " + sp.id + ".");
             return;
@@ -92,6 +93,38 @@ public final class ShopMulti {
         }
         if (!com.minenorth.vehicles.garage.Garage.serviceOnDuty(p, service)) {
             Msg.send(p, "&cPrends d'abord ton service (tablette > prise de service) pour accéder à la concession.");
+            return false;
+        }
+        return true;
+    }
+
+    /** Concession réservée à la mairie (maire, agents) ou à une entreprise (membres ou direction) ; le staff passe toujours. */
+    private static boolean accessOk(ServerPlayer p, ShopProfiles.Profile sp) {
+        if (!sp.mairie && sp.company.isEmpty()) return true;
+        if (p.hasPermissions(2)) return true;
+        if (sp.mairie) {
+            if (fr.minenorth.api.MineNorth.state() == fr.minenorth.api.StateService.NONE) {
+                Msg.send(p, "&cConcession indisponible : réservée à la mairie mais le mod État est absent.");
+                return false;
+            }
+            if (!fr.minenorth.api.MineNorth.state().isTownHall(p)) {
+                Msg.send(p, "&cConcession réservée à la mairie (maire et agents).");
+                return false;
+            }
+            return true;
+        }
+        var companies = fr.minenorth.api.MineNorth.companies();
+        if (companies == fr.minenorth.api.CompanyService.NONE) {
+            Msg.send(p, "&cConcession indisponible : réservée à une entreprise mais le mod Entreprises est absent.");
+            return false;
+        }
+        int id = companies.idOf(p.getServer(), sp.company);
+        if (id <= 0) {
+            Msg.send(p, "&cConcession réservée à l'entreprise « " + sp.company + " » qui n'existe plus.");
+            return false;
+        }
+        if (!companies.isMember(p, id, sp.companyDirection)) {
+            Msg.send(p, "&cConcession réservée " + (sp.companyDirection ? "à la direction de " : "aux employés de ") + sp.company + ".");
             return false;
         }
         return true;
@@ -213,6 +246,7 @@ public final class ShopMulti {
     private static void buy(ServerPlayer p, ShopProfiles.Profile sp, Catalog.Vehicle v, Payment.Method method) {
         MinecraftServer server = p.getServer();
         if (!sp.service.isEmpty() && !dutyOk(p, sp.service)) return;     // re-vérifié à l'achat : service quitté entre-temps
+        if (!accessOk(p, sp)) return;                                    // idem pour la mairie / l'entreprise
         int price = sp.priceOf(v.price);
         if (!ShopZoneData.get(server).zones.containsKey(sp.id)) {
             Msg.send(p, "&cAucune zone de pose pour ce vendeur.");

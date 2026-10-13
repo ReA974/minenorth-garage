@@ -27,6 +27,12 @@ public final class ShopProfiles {
         public Boolean plates;
         /** Concessionnaire de service : "police" ou "pompier" = réservé aux agents qui ont pris leur service (tablette). "" = public. */
         public String service = "";
+        /** Concession réservée à la mairie : maire et agents (le staff passe toujours). */
+        public boolean mairie;
+        /** Concession réservée à une entreprise (son nom exact) : "" = non. */
+        public String company = "";
+        /** Avec une entreprise : true = direction seulement (patron et grades avec droit de gestion), false = tous les membres. */
+        public boolean companyDirection;
         /** Multiplicateur du prix du catalogue (1 = prix normal, 0 = gratuit : dotation de service). */
         public double priceFactor = 1.0;
 
@@ -96,11 +102,45 @@ public final class ShopProfiles {
                 if (o.has("plates")) p.plates = o.get("plates").getAsBoolean();
                 if (o.has("service")) p.service = com.minenorth.vehicles.garage.Garage.serviceOfKeyword(o.get("service").getAsString());
                 else if (o.has("police") && o.get("police").getAsBoolean()) p.service = "police";   // ancien réglage
+                if (o.has("mairie")) p.mairie = o.get("mairie").getAsBoolean();
+                if (o.has("company")) p.company = o.get("company").getAsString().trim();
+                if (o.has("companyDirection")) p.companyDirection = o.get("companyDirection").getAsBoolean();
                 if (o.has("priceFactor")) p.priceFactor = Math.max(0, o.get("priceFactor").getAsDouble());
                 PROFILES.put(p.id, p);
             }
         } catch (Exception ex) {
             VehiclesMod.LOGGER.error("[Vendeurs] Erreur de lecture de " + f, ex);
+        }
+    }
+
+    /**
+     * Règle l'accès d'une concession dans shops.json : mode = "tous" | "mairie" | "entreprise" ; pour une entreprise, son nom et
+     * direction (true = patron et gérants seulement). Renvoie un message d'erreur, ou null si c'est fait.
+     */
+    public static synchronized String setAccess(String id, String mode, String company, boolean direction) {
+        Path f = file();
+        try {
+            JsonObject root;
+            try (Reader r = Files.newBufferedReader(f, StandardCharsets.UTF_8)) {
+                root = JsonParser.parseReader(r).getAsJsonObject();
+            }
+            JsonObject shops = root.getAsJsonObject("shops");
+            if (shops == null || !shops.has(id)) return "Vendeur inconnu : " + id;
+            JsonObject o = shops.getAsJsonObject(id);
+            o.remove("mairie");
+            o.remove("company");
+            o.remove("companyDirection");
+            if (mode.equals("mairie")) o.addProperty("mairie", true);
+            else if (mode.equals("entreprise")) {
+                o.addProperty("company", company);
+                if (direction) o.addProperty("companyDirection", true);
+            }
+            Files.writeString(f, new com.google.gson.GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(root), StandardCharsets.UTF_8);
+            loadedMtime = -1;     // recharge immédiate
+            return null;
+        } catch (Exception ex) {
+            VehiclesMod.LOGGER.error("[Vendeurs] Écriture de shops.json impossible", ex);
+            return "Écriture de shops.json impossible (voir la console).";
         }
     }
 

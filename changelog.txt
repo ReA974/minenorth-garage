@@ -1084,3 +1084,5 @@
 
 
 [13/10] Concessions reservees : /vendeuracces <id> tous | mairie | entreprise <nom> [direction] (complétion des entreprises) ; cles shops.json : mairie, company, companyDirection. Le staff passe toujours.
+
+[13/10] Appeler le mecano (fourriere) : message + point sur la carte UNIQUEMENT pour les membres de l entreprise de depannage (minenorth-fourriere.toml : mechanicCompany, defaut "Tune My Thing"), seulement si elle est ouverte. Point retire a l arrivee d un mecano / vehicule disparu / mechanicMarkerMinutes. Vide = ancien comportement.

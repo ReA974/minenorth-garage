@@ -55,8 +55,7 @@ public final class Impound {
         Gui.open(p, "&cMise en fourrière", 1, items, slot -> {
             if (slot == 3) Gui.later(p, () -> {
                 p.closeContainer();
-                p.getServer().getPlayerList().broadcastSystemMessage(Gui.comp(ImpoundConfig.MECHANIC_MESSAGE.get()), false);
-                Msg.send(p, "&aLe mécano a été prévenu.");
+                MechanicCalls.call(p, vehicle, label);
             });
             else if (slot == 5) Gui.later(p, () -> {
                 p.closeContainer();

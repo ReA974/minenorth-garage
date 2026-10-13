@@ -7,7 +7,8 @@ public final class ImpoundConfig {
     public static final ForgeConfigSpec SPEC;
 
     public static final ForgeConfigSpec.ConfigValue<String> POLICE_ITEM, POLICE_TAG, MECHANIC_MESSAGE;
-    public static final ForgeConfigSpec.IntValue PRICE, MAX_PER_OWNER;
+    public static final ForgeConfigSpec.ConfigValue<String> MECHANIC_COMPANY;
+    public static final ForgeConfigSpec.IntValue PRICE, MAX_PER_OWNER, MECHANIC_MINUTES;
     public static final ForgeConfigSpec.BooleanValue CENTER_SPAWN;
 
     static {
@@ -21,6 +22,11 @@ public final class ImpoundConfig {
         MAX_PER_OWNER = b.comment("Véhicules max en fourrière par joueur").defineInRange("maxPerOwner", 50, 1, 500);
         MECHANIC_MESSAGE = b.comment("Message diffusé quand la police appelle le mécano")
                 .define("mechanicMessage", "&6&lUn mécano est demandé pour un véhicule mal garé !");
+        MECHANIC_COMPANY = b.comment("Entreprise de dépannage (nom exact) : quand la police appelle le mécano, SEULS ses membres reçoivent le message et le point sur la carte,",
+                        "et seulement si l'entreprise est ouverte (ouverte par la direction ET au moins un membre connecté). Vide = ancien comportement (message à tout le serveur).")
+                .define("mechanicCompany", "Tune My Thing");
+        MECHANIC_MINUTES = b.comment("Durée (minutes) du point du mécano sur la carte (retiré plus tôt si un mécano arrive sur place ou si le véhicule disparaît)")
+                .defineInRange("mechanicMarkerMinutes", 15, 1, 240);
         CENTER_SPAWN = b.comment("Recentre automatiquement les véhicules sortis (garage / fourrière) sur le point cible")
                 .define("autoCenter", true);
         b.pop();

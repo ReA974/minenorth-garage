@@ -70,6 +70,15 @@ public final class PompeMenu {
         return best;
     }
 
+    /** Fluide à verser dans ce véhicule : celui de la pompe s'il est accepté, sinon le premier de la liste de la config que ses moteurs acceptent. */
+    private static String pickFluid(Object veh, String preferred) throws ReflectiveOperationException {
+        if (MtsPump.accepts(veh, preferred)) return preferred;
+        for (String f : VehicleConfig.PUMP_FLUID_ALIASES.get()) {
+            if (f != null && !f.isBlank() && MtsPump.accepts(veh, f.trim())) return f.trim();
+        }
+        return null;
+    }
+
     private static Quote quote(ServerPlayer p, BlockPos pos) {
         Object pump = MtsPump.pumpAt(p.level(), pos);
         if (pump == null) return Quote.fail("Cette pompe n'existe plus.");
@@ -84,7 +93,10 @@ public final class PompeMenu {
             Entity v = findVehicle(p, pos);
             if (v == null) return Quote.fail("Aucun véhicule à moins de " + VehicleConfig.PUMP_RADIUS.get().intValue() + " blocs de la pompe.");
             Object veh = MtsPump.vehicle(v);
-            if (!MtsPump.accepts(veh, fluid)) return Quote.fail("Ce véhicule n'accepte pas ce carburant (" + fluid + ").");
+            // les moteurs MTS n'acceptent souvent que « lava » (carburant universel) : on verse le premier fluide qu'ils acceptent
+            String use = pickFluid(veh, fluid);
+            if (use == null) return Quote.fail("Ce véhicule n'accepte aucun carburant connu (" + fluid + " ; voir fluidesAcceptes de la pompe).");
+            fluid = use;
             Object vtank = MtsPump.vehicleTank(veh);
             // un réservoir ne mélange pas deux fluides : un autre carburant (souvent « lava », mis à l'achat) est vidé avant le plein
             String inside = MtsPump.fluid(vtank);

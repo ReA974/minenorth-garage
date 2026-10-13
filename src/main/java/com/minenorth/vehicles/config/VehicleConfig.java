@@ -23,6 +23,7 @@ public final class VehicleConfig {
     public static final ForgeConfigSpec.DoubleValue DEFAULT_ZONE_RADIUS, SHOP_PLACE_RADIUS, PROMPT_MAX_MOVE;
     public static final ForgeConfigSpec.BooleanValue AUTO_PROMPT, GIVE_KEY, THEMED_GUI, CUSTOM_GUI, FILL_FUEL;
     public static final ForgeConfigSpec.ConfigValue<String> FUEL_FLUID;
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> PUMP_FLUID_ALIASES;
     public static final ForgeConfigSpec.ConfigValue<String> POLICE_TAG;
     public static final ForgeConfigSpec.BooleanValue UNSTUCK_REQUIRE_BUGGED;
     public static final ForgeConfigSpec.IntValue UNSTUCK_RADIUS, UNSTUCK_COOLDOWN;
@@ -150,6 +151,9 @@ public final class VehicleConfig {
         PUMP_REPLACE_FUEL = b.comment("Un réservoir MTS ne mélange pas deux fluides. Les véhicules reçoivent souvent du « lava » (carburant universel de MTS) à l'achat :",
                         "true = le plein vide d'abord le carburant d'un autre type (lava...) puis met celui de la pompe ; false = refus.")
                 .define("remplacerCarburant", true);
+        PUMP_FLUID_ALIASES = b.comment("Fluides essayés dans l'ordre quand le moteur d'un véhicule n'accepte pas celui de la pompe (MTS n'accepte souvent que « lava », son carburant universel).",
+                        "Le plein se fait alors avec le premier accepté, et la pompe perd la même quantité d'essence.")
+                .defineList("fluidesAcceptes", Arrays.asList("gasoline", "diesel", "kerosene", "lava"), o -> o instanceof String);
         PUMP_FLUID_MOD = b.comment("Origine (« mod ») du fluide MTS d'une pompe vide qu'on remplit : s'affiche dans MTS (ex. gasoline de minenorth_harvest).",
                         "Sans effet sur les pleins : les véhicules acceptent le carburant quelle que soit son origine.")
                 .define("fluidMod", "minenorth_harvest");

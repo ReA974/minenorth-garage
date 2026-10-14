@@ -212,7 +212,7 @@ public final class ShopMulti {
     private static void openPayment(ServerPlayer p, ShopProfiles.Profile sp, String cat, String model, boolean multi, Catalog.Vehicle v) {
         List<VehicleConfig.Denom> den = VehicleConfig.currency();
         int cash = Money.count(p, den);
-        int price = sp.priceOf(v.price);
+        int price = (int) fr.minenorth.api.MineNorth.discounted(p.server, p.getUUID(), sp.priceOf(v.price));   // remise de grade (VIP)
         PayResult card = Payment.cardStatus(p, price);
         String label = v.model + (v.color.equals("Défaut") ? "" : " (" + v.color + ")");
 
@@ -247,7 +247,7 @@ public final class ShopMulti {
         MinecraftServer server = p.getServer();
         if (!sp.service.isEmpty() && !dutyOk(p, sp.service)) return;     // re-vérifié à l'achat : service quitté entre-temps
         if (!accessOk(p, sp)) return;                                    // idem pour la mairie / l'entreprise
-        int price = sp.priceOf(v.price);
+        int price = (int) fr.minenorth.api.MineNorth.discounted(p.server, p.getUUID(), sp.priceOf(v.price));
         if (!ShopZoneData.get(server).zones.containsKey(sp.id)) {
             Msg.send(p, "&cAucune zone de pose pour ce vendeur.");
             return;

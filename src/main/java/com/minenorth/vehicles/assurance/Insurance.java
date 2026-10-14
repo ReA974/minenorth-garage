@@ -76,7 +76,7 @@ public final class Insurance {
         List<GarageData.Stored> list = GarageData.get(p.getServer()).of(p.getUUID());
         if (index < 0 || index >= list.size()) return;
         GarageData.Stored s = list.get(index);
-        int price = price(s.itemId);
+        int price = (int) fr.minenorth.api.MineNorth.discounted(p.getServer(), p.getUUID(), price(s.itemId));   // remise de grade (VIP)
         int cash = Money.count(p, VehicleConfig.currency());
         PayResult card = Payment.cardStatus(p, price);
 
@@ -104,7 +104,7 @@ public final class Insurance {
         if (index < 0 || index >= list.size()) return;
         GarageData.Stored s = list.get(index);
         if (MtsBridge.isInsured(s.nbt)) { Msg.send(p, "&eCe véhicule est déjà assuré."); return; }
-        int price = price(s.itemId);
+        int price = (int) fr.minenorth.api.MineNorth.discounted(p.getServer(), p.getUUID(), price(s.itemId));
         List<VehicleConfig.Denom> den = VehicleConfig.currency();
         String err = Payment.precheck(p, price, method, den, "pour assurer ce véhicule");
         if (err != null) { Msg.send(p, "&c" + err); return; }

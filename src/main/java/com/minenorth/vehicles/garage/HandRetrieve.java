@@ -79,11 +79,19 @@ public final class HandRetrieve {
         GarageData data = GarageData.get(server);
         GarageData.Pending pe = data.pending.remove(id);
         if (pe == null) return;
+        ServerPlayer p = server.getPlayerList().getPlayer(id);
+        if (strip && p != null && !stripOne(p, pe.vehicle.itemId)) {
+            // L'objet n'est plus sur le joueur (jeté, rangé dans un coffre, donné) : rendre le véhicule au garage le dupliquerait.
+            data.setDirty();
+            com.minenorth.vehicles.VehiclesMod.LOGGER.warn("[Garage] {} : l'objet de « {} » n'est plus dans son inventaire à l'échéance de la sortie en main ; "
+                    + "le véhicule reste dans l'objet et ne retourne pas au garage.", p.getGameProfile().getName(), pe.vehicle.label);
+            Msg.send(p, "&cL'objet du véhicule (" + pe.vehicle.label + ") n'est plus dans ton inventaire (jeté, rangé ou donné) : le véhicule reste dans cet objet "
+                    + "et ne retourne pas au garage. Retrouve l'objet et pose-le dans une zone garage.");
+            return;
+        }
         GarageData.Zone pz = data.zones.get(pe.zone);
         data.of(pz != null && !pz.service.isEmpty() ? Garage.serviceKey(id, pz.service) : id).add(pe.vehicle);   // retour au garage d'où il est sorti
-        ServerPlayer p = server.getPlayerList().getPlayer(id);
         if (p != null) {
-            if (strip) stripOne(p, pe.vehicle.itemId);
             Msg.send(p, why);
         } else if (strip) {
             data.strip.computeIfAbsent(id, k -> new ArrayList<>()).add(pe.vehicle.itemId);
@@ -95,6 +103,11 @@ public final class HandRetrieve {
     private static boolean stripOne(ServerPlayer p, String itemId) {
         Item item = VehicleConfig.item(itemId);
         if (item == Items.AIR) return false;
+        ItemStack carried = p.containerMenu.getCarried();
+        if (!carried.isEmpty() && carried.getItem() == item) {
+            carried.shrink(1);
+            return true;
+        }
         for (ItemStack st : p.getInventory().items) {
             if (!st.isEmpty() && st.getItem() == item) {
                 st.shrink(1);

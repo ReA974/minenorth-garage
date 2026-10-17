@@ -59,9 +59,9 @@ public final class MenuNet {
     public static void onSetup(FMLCommonSetupEvent e) {
         e.enqueueWork(() -> {
             int id = 0;
-            CHANNEL.registerMessage(id++, OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle);
-            CHANNEL.registerMessage(id++, MenuClickPacket.class, MenuClickPacket::encode, MenuClickPacket::decode, MenuClickPacket::handle);
-            CHANNEL.registerMessage(id++, CloseMenuPacket.class, CloseMenuPacket::encode, CloseMenuPacket::decode, CloseMenuPacket::handle);
+            CHANNEL.registerMessage(id++, OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+            CHANNEL.registerMessage(id++, MenuClickPacket.class, MenuClickPacket::encode, MenuClickPacket::decode, MenuClickPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
+            CHANNEL.registerMessage(id++, CloseMenuPacket.class, CloseMenuPacket::encode, CloseMenuPacket::decode, CloseMenuPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
         });
     }
 

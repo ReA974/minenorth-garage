@@ -55,8 +55,11 @@ public final class Insurance {
             Msg.send(p, "&cTon garage est vide : range d'abord ton véhicule pour l'assurer.");
             return;
         }
-        int n = Math.min(54, list.size());
-        ItemStack[] items = new ItemStack[n];
+        int n = Math.min(53, list.size());
+        int rows = (n + 9) / 9;
+        int back = rows * 9 - 1;
+        ItemStack[] items = new ItemStack[rows * 9];
+        items[back] = Gui.item(Items.ARROW, "&c« Retour");
         for (int i = 0; i < n; i++) {
             GarageData.Stored s = list.get(i);
             boolean insured = MtsBridge.isInsured(s.nbt);
@@ -64,11 +67,12 @@ public final class Insurance {
                     insured ? "&bDéjà assuré" : "&7Assurance : &c" + price(s.itemId) + "€ &8(" + InsuranceConfig.PERCENT.get() + " % du prix)",
                     insured ? "&8S'il est détruit, il reviendra dans ton garage." : "&7Clique pour assurer ce véhicule");
         }
-        Gui.open(p, "&bAssurance véhicule", (n + 8) / 9, items, slot -> {
+        Gui.open(p, "&bAssurance véhicule", rows, items, slot -> {
             if (slot < n) Gui.later(p, () -> {
                 if (MtsBridge.isInsured(list.get(slot).nbt)) Msg.send(p, "&eCe véhicule est déjà assuré.");
                 else openPayment(p, slot);
             });
+            else if (slot == back) Gui.later(p, () -> com.minenorth.vehicles.garage.Garage.openMenu(p));
         });
     }
 

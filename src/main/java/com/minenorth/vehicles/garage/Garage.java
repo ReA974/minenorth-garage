@@ -431,19 +431,23 @@ public final class Garage {
             Msg.send(p, "&cAucun de tes véhicules ne peut sortir de ce garage (" + zoneHere.typesLabel() + " uniquement).");
             return;
         }
-        // Dernier emplacement : mode de sortie. Assurance, vente et filtre sont dans le menu principal.
-        int rows = Math.min(6, Math.max(1, (shown.size() + 9) / 9));
+        // Dernier emplacement : Retour ; avant-dernier : mode de sortie. Assurance, vente et filtre sont dans le menu principal.
+        int rows = Math.min(6, Math.max(1, (shown.size() + 10) / 9));
         ItemStack[] items = new ItemStack[rows * 9];
         ItemStack[] vehicles = listItems(view, p);
         System.arraycopy(vehicles, 0, items, 0, Math.min(vehicles.length, items.length));
-        int modeSlot = items.length - 1;
+        int backSlot = items.length - 1;
+        int modeSlot = items.length - 2;
+        boolean hasBack = shown.size() <= backSlot;
         boolean extras = shown.size() <= modeSlot;
+        if (hasBack) items[backSlot] = Gui.item(Items.ARROW, "&c« Retour");
         if (extras) items[modeSlot] = modeItem(p);
         Gui.open(p, "&aMon Garage" + (filter == null ? "" : " - " + filter.label), rows, items, slot -> {
             if (slot < shown.size()) Gui.later(p, () -> {
                 p.closeContainer();
                 retrieve(p, shown.get(slot));
             });
+            else if (hasBack && slot == backSlot) Gui.later(p, () -> openMenu(p));
             else if (extras && slot == modeSlot) Gui.later(p, () -> {
                 toggleMode(p);
                 openList(p);

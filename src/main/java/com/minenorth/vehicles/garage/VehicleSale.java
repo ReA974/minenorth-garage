@@ -66,8 +66,10 @@ public final class VehicleSale {
             Msg.send(p, "&cTon garage est vide : aucun véhicule à vendre.");
             return;
         }
-        int n = Math.min(54, list.size());
-        ItemStack[] items = new ItemStack[(Math.min(6, (n + 8) / 9)) * 9];
+        int n = Math.min(53, list.size());
+        int back = ((n + 9) / 9) * 9 - 1;
+        ItemStack[] items = new ItemStack[back + 1];
+        items[back] = Gui.item(Items.ARROW, "&c« Retour");
         for (int i = 0; i < n; i++) {
             GarageData.Stored s = list.get(i);
             String plate = findPlate(p.getServer(), p.getUUID(), s.nbt);
@@ -80,6 +82,7 @@ public final class VehicleSale {
                 p.closeContainer();
                 select(p, slot);
             });
+            else if (slot == back) Gui.later(p, () -> Garage.openMenu(p));
         });
     }
 

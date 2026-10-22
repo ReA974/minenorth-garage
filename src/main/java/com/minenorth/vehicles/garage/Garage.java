@@ -209,7 +209,7 @@ public final class Garage {
     }
 
     /** Véhicules/remorques rangeables à proximité : les siens + celui où il est assis (tous si admin). */
-    private static List<Entity> candidates(ServerPlayer p, boolean admin) {
+    public static List<Entity> candidates(ServerPlayer p, boolean admin) {
         ServerLevel level = (ServerLevel) p.level();
         AABB box = p.getBoundingBox().inflate(VehicleConfig.SEARCH_RADIUS.get());
         Entity seat = MtsBridge.vehicleOf(p);
@@ -338,6 +338,7 @@ public final class Garage {
             items[15] = Gui.item(Items.EMERALD, "&a&lVendre un véhicule", "&7Vends un véhicule de ton garage", "&7(avec sa plaque) à un autre joueur.");
         }
         items[13] = filterItem(p);
+        items[4] = Gui.item(Items.CHEST, "&e&lCoffre du véhicule", "&7Ouvre le coffre de ton véhicule le plus proche", "&7et permet d'agrandir sa place.");
         Gui.open(p, copGarage ? "&9Garage " + serviceLabel(svcHere) : "&aGarage", 2, items, slot -> {
             if (copGarage && (slot == 11 || slot == 15)) return;
             if (slot == 2) Gui.later(p, () -> {
@@ -345,6 +346,7 @@ public final class Garage {
                 storeNearby(p);
             });
             else if (slot == 6) Gui.later(p, () -> openList(p));
+            else if (slot == 4) Gui.later(p, () -> com.minenorth.vehicles.coffre.Trunk.openNearest(p));
             else if (slot == 11) Gui.later(p, () -> com.minenorth.vehicles.assurance.Insurance.openMenu(p));
             else if (slot == 13) Gui.later(p, () -> {
                 cycleFilter(p);

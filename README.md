@@ -90,3 +90,14 @@ Viser une pompe MTS à moins de 6 blocs.
 | `/farmzone create <nom>` | Crée la zone entre pos1 et pos2. |
 | `/farmzone list` | Liste les zones. |
 | `/farmzone remove <nom>` | Supprime la zone. |
+
+## Coffre des véhicules et extension de coffre
+
+Chaque véhicule a un coffre serveur (sans commande, interface seulement). Il s'ouvre en **accroupi + clic droit à mains vides** sur le véhicule
+(option `clicAccroupi`), ou par « Coffre du véhicule » dans le menu du garage. Le menu propose d'ouvrir le coffre et d'acheter une extension.
+
+- **Taille** : selon la catégorie du catalogue (`config/minenorth-coffre.toml`, `[tailles] categories`, format `Catégorie;base;max`, multiples de 9, 9 à 54), valeur par défaut pour les catégories inconnues. Les anciens véhicules reçoivent leur coffre à la première ouverture.
+- **Extension** : paliers payants (espèces ou carte, remise de grade appliquée), `emplacementsParPalier` et `prixDesPaliers` configurables, jusqu'au maximum de la catégorie ; réservée au propriétaire, liée au véhicule. `zoneGarageRequise` impose une zone garage.
+- **Accès** : véhicule verrouillé (MTS) = coffre fermé sauf pour son propriétaire ; les OP suivent les mêmes règles. Tout est contrôlé côté serveur.
+- **Persistance** : contenu et palier sont dans les données de l'entité (`mnrp_coffre`) : ils suivent le véhicule au garage, à la fourrière et à la vente. Un seul conteneur partagé par véhicule, pas de duplication.
+- **Disparition hors garage** (destruction, revente au receleur du mod vol, ramassage) : le contenu est lâché au sol avant la suppression. L'assurance rend le véhicule avec le palier mais un coffre vide.

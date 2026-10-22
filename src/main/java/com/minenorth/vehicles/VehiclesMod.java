@@ -20,6 +20,7 @@ public class VehiclesMod {
             ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, VehicleConfig.SPEC, "minenorth-garage.toml");
             ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ImpoundConfig.SPEC, "minenorth-fourriere.toml");
             ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, com.minenorth.vehicles.assurance.InsuranceConfig.SPEC, "minenorth-assurance.toml");
+            ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, com.minenorth.vehicles.coffre.TrunkConfig.SPEC, "minenorth-coffre.toml");
         }
     }
 }

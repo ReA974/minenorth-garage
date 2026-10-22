@@ -84,7 +84,26 @@ public final class MtsBridge {
     /** État du véhicule au moment où il est sorti du garage (assuré seulement) : c'est celui qu'on lui rend après une destruction. */
     public static final String ORIGIN = "mnrp_origin";
 
-    public static void setOrigin(Entity e, CompoundTag state) { e.getPersistentData().put(ORIGIN, state.copy()); }
+    /** La photo d'origine garde le palier de coffre mais jamais son contenu (sinon l'assurance dupliquerait les objets). */
+    public static void setOrigin(Entity e, CompoundTag state) {
+        CompoundTag copy = state.copy();
+        CompoundTag fd = copy.getCompound("ForgeData");
+        if (fd.contains(com.minenorth.vehicles.coffre.Trunk.TAG, 10)) fd.getCompound(com.minenorth.vehicles.coffre.Trunk.TAG).remove("Items");
+        e.getPersistentData().put(ORIGIN, copy);
+    }
+
+    /** Véhicule verrouillé par MTS (champ « locked » du véhicule, ou variable du même nom). Faux si illisible. */
+    public static boolean isLocked(Entity e) {
+        try {
+            Object in = field(e, "entity");
+            if (in == null) return false;
+            if (field(in, "locked") instanceof Boolean b) return b;
+            Object v = in.getClass().getMethod("getVariable", String.class).invoke(in, "locked");
+            return v instanceof Number n && n.doubleValue() > 0;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
 
     public static CompoundTag origin(Entity e) {
         CompoundTag d = e.getPersistentData();

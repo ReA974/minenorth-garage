@@ -35,7 +35,7 @@ public class MenuScreen extends Screen {
     private static final ResourceLocation LOGO = new ResourceLocation("minenorth_eurobank", "textures/gui/logo.png");
     private static final int BG = 0xFF161048, PANEL = 0xFF0E0A34, CARD = 0xFF1C1560, EDGE = 0xFF3A2FA0;
     private static final int CYAN = 0xFF20AAEB, VIOLET = 0xFF4A3CB4, PINK = 0xFFC83CF0, GREY = 0xFF8FA8E0, TEXT = 0xFFCFE3FF;
-    private static final int CW = 150, CH = 40, GAP = 4, PAD = 12;
+    private static final int CW = 170, CH = 40, GAP = 4, PAD = 12;
 
     private final int menuId;
     private final String title;
@@ -185,8 +185,16 @@ public class MenuScreen extends Screen {
     }
 
     private void firstLine(GuiGraphics g, Component c, int x, int y, int maxW, int color) {
-        List<FormattedCharSequence> lines = font.split(c, maxW);
-        if (!lines.isEmpty()) g.drawString(font, lines.get(0), x, y, color, false);
+        // texte trop large : réduit (jusqu'à 60 %) pour tenir dans la carte, puis coupé en dernier recours
+        int w = font.width(c);
+        float s = w <= maxW ? 1f : Math.max(0.6f, (float) maxW / w);
+        List<FormattedCharSequence> lines = font.split(c, Math.round(maxW / s));
+        if (lines.isEmpty()) return;
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(s, s, 1f);
+        g.drawString(font, lines.get(0), 0, 0, color, false);
+        g.pose().popPose();
     }
 
     @Override
@@ -247,7 +255,8 @@ public class MenuScreen extends Screen {
 
         super.render(g, mx, my, pt);
 
-        if (hover >= 0) g.renderTooltip(font, cards.get(hover).stack(), mx, my);
+        // l'infobulle ne sert que si la carte ne montre pas tout (plus de 2 lignes de description) : sinon elle cacherait le texte
+        if (hover >= 0 && lore(cards.get(hover).stack()).size() > 2) g.renderTooltip(font, cards.get(hover).stack(), mx, my);
     }
 
     private void renderCard(GuiGraphics g, ItemStack st, int x, int y, boolean hov) {

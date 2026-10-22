@@ -328,31 +328,32 @@ public final class Garage {
         }
         String svcHere = zoneAt(p).service;
         boolean copGarage = !svcHere.isEmpty();
-        // Ligne 1 : rentrer / voir le garage. Ligne 2 : assurance / filtre / vente.
+        // Écran à deux colonnes (ordre des slots) : gauche = Rentrer, Coffre, Filtre ; droite = Voir mon garage (action principale), Assurer, Vendre.
+        // Garage de police : Rentrer, Voir, Coffre, Filtre (gauche : Rentrer, Coffre ; droite : Voir, Filtre).
+        final int RENTRER = 1, VOIR = 3, COFFRE = 5, ASSURER = 7, FILTRE = 10, VENDRE = 12;
         ItemStack[] items = new ItemStack[18];
-        items[2] = Gui.item(Items.PAPER, "&e&lRentrer mon véhicule", "&7Monte dans ton véhicule ou reste à côté.");
-        items[6] = Gui.item(Items.PAPER, "&e&lVoir mon garage");
+        items[RENTRER] = Gui.item(Items.IRON_DOOR, "&e&lRentrer véhicule", "&7Monte dedans ou reste à côté.");
+        items[VOIR] = Gui.item(Items.BOOK, "&e&lVoir mon garage", "&7Liste et sortie de tes véhicules.");
+        items[COFFRE] = Gui.item(Items.CHEST, "&e&lCoffre véhicule", "&7Ouvre le coffre du plus proche,", "&7et agrandis sa place.");
         if (!copGarage) {   // assurance et vente concernent le garage civil : pas dans un garage de police
-            items[11] = Gui.item(Items.SHIELD, "&b&lAssurer mes véhicules", "&7Paie une assurance : si le véhicule est détruit,",
-                    "&7il revient seul dans ton garage (une seule fois).");
-            items[15] = Gui.item(Items.EMERALD, "&a&lVendre un véhicule", "&7Vends un véhicule de ton garage", "&7(avec sa plaque) à un autre joueur.");
+            items[ASSURER] = Gui.item(Items.SHIELD, "&b&lAssurer véhicule", "&7Détruit : il revient au garage", "&7(une seule fois).");
+            items[VENDRE] = Gui.item(Items.EMERALD, "&a&lVendre véhicule", "&7Vente à un autre joueur,", "&7plaque comprise.");
         }
-        items[13] = filterItem(p);
-        items[4] = Gui.item(Items.CHEST, "&e&lCoffre du véhicule", "&7Ouvre le coffre de ton véhicule le plus proche", "&7et permet d'agrandir sa place.");
+        items[FILTRE] = filterItem(p);
         Gui.open(p, copGarage ? "&9Garage " + serviceLabel(svcHere) : "&aGarage", 2, items, slot -> {
-            if (copGarage && (slot == 11 || slot == 15)) return;
-            if (slot == 2) Gui.later(p, () -> {
+            if (copGarage && (slot == ASSURER || slot == VENDRE)) return;
+            if (slot == RENTRER) Gui.later(p, () -> {
                 p.closeContainer();
                 storeNearby(p);
             });
-            else if (slot == 6) Gui.later(p, () -> openList(p));
-            else if (slot == 4) Gui.later(p, () -> com.minenorth.vehicles.coffre.Trunk.openNearest(p));
-            else if (slot == 11) Gui.later(p, () -> com.minenorth.vehicles.assurance.Insurance.openMenu(p));
-            else if (slot == 13) Gui.later(p, () -> {
+            else if (slot == VOIR) Gui.later(p, () -> openList(p));
+            else if (slot == COFFRE) Gui.later(p, () -> com.minenorth.vehicles.coffre.Trunk.openNearest(p));
+            else if (slot == ASSURER) Gui.later(p, () -> com.minenorth.vehicles.assurance.Insurance.openMenu(p));
+            else if (slot == FILTRE) Gui.later(p, () -> {
                 cycleFilter(p);
                 openMenu(p);
             });
-            else if (slot == 15) Gui.later(p, () -> VehicleSale.openSell(p));
+            else if (slot == VENDRE) Gui.later(p, () -> VehicleSale.openSell(p));
         });
     }
 
@@ -371,7 +372,7 @@ public final class Garage {
                 "&7" + label, "&7Garage : &e" + n + "/" + max, "&8Pièces, carburant et coffres conservés");
         items[13] = Gui.item(iconOf(id), "&e&l" + label, "&7Type : " + VehicleType.of(id, snap).tag());
         items[15] = Gui.item(Items.RED_CONCRETE, "&c&lAnnuler");
-        items[22] = Gui.item(Items.PAPER, "&e&lVoir mon garage");
+        items[22] = Gui.item(Items.BOOK, "&e&lVoir mon garage");
         Gui.open(p, "&aStocker ce véhicule ?", 3, items, slot -> {
             if (slot == 11) Gui.later(p, () -> {
                 p.closeContainer();
@@ -403,8 +404,8 @@ public final class Garage {
         List<GarageData.Stored> all = GarageData.get(p.getServer()).of(keyHere(p));
         return Gui.item(filter == null ? Items.COMPASS : filter == VehicleType.AIR ? Items.FEATHER : filter == VehicleType.MER ? Items.WATER_BUCKET : Items.MINECART,
                 "&e&lFiltre : " + (filter == null ? "&fTous" : filter.tag()),
-                "&7Terrestre : &f" + count(all, VehicleType.TERRE) + " &7| Aérien : &f" + count(all, VehicleType.AIR) + " &7| Maritime : &f" + count(all, VehicleType.MER),
-                "&8Clique pour changer de type", "&8S'applique à « Voir mon garage »");
+                "&7Terre &f" + count(all, VehicleType.TERRE) + " &7· Air &f" + count(all, VehicleType.AIR) + " &7· Mer &f" + count(all, VehicleType.MER),
+                "&8Clique pour changer de type");
     }
 
     public static void openList(ServerPlayer p) {

@@ -92,17 +92,71 @@ public final class MtsBridge {
         e.getPersistentData().put(ORIGIN, copy);
     }
 
-    /** Véhicule verrouillé par MTS (champ « locked » du véhicule, ou variable du même nom). Faux si illisible. */
+    /**
+     * Véhicule verrouillé par MTS. MTS 24 : variable calculée {@code lockedVar} du véhicule ; versions plus anciennes :
+     * champ booléen « locked » ou variable du même nom. Faux si illisible.
+     */
     public static boolean isLocked(Entity e) {
         try {
             Object in = field(e, "entity");
             if (in == null) return false;
+            Object var = field(in, "lockedVar");
+            if (var != null) return variableOn(var);
             if (field(in, "locked") instanceof Boolean b) return b;
             Object v = in.getClass().getMethod("getVariable", String.class).invoke(in, "locked");
             return v instanceof Number n && n.doubleValue() > 0;
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /** Variable calculée MTS (ComputedVariable) à une valeur non nulle. */
+    private static boolean variableOn(Object var) throws Exception {
+        return ((Number) var.getClass().getMethod("getValue").invoke(var)).doubleValue() > 0;
+    }
+
+    /**
+     * Le coffre du véhicule est-il ouvert ? D'abord l'emplacement de coffre du modèle (type contenant « trunk » / « coffre ») :
+     * MTS y donne les variables à ouvrir pour s'en servir ({@code interactableVariables}). Sinon une variable de porte connue
+     * ({@code noms}) déjà présente sur le véhicule.
+     * @return null si le modèle n'a ni emplacement de coffre ni variable reconnue, ou si MTS est illisible
+     */
+    public static Boolean trunkOpen(Entity e, java.util.List<? extends String> noms) {
+        try {
+            Object in = field(e, "entity");
+            if (in == null) return null;
+            boolean found = false;
+            if (field(field(in, "definition"), "parts") instanceof java.util.List<?> slots) {
+                java.lang.reflect.Method listTrue = in.getClass().getMethod("isVariableListTrue", java.util.List.class);
+                for (Object slot : slots) {
+                    if (!trunkSlot(slot) || !(field(slot, "interactableVariables") instanceof java.util.List<?> vars) || vars.isEmpty()) continue;
+                    found = true;
+                    if (Boolean.TRUE.equals(listTrue.invoke(in, vars))) return true;
+                }
+            }
+            if (field(in, "computedVariables") instanceof java.util.Map<?, ?> m) {
+                for (String n : noms) {
+                    Object var = m.get(n.trim());
+                    if (var == null) continue;
+                    found = true;
+                    if (variableOn(var)) return true;
+                }
+            }
+            return found ? Boolean.FALSE : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static boolean trunkSlot(Object slotDef) {
+        if (!(field(slotDef, "types") instanceof java.util.List<?> types)) return false;
+        for (Object t : types) {
+            if (t instanceof String s) {
+                String l = s.toLowerCase(Locale.ROOT);
+                if (l.contains("trunk") || l.contains("coffre")) return true;
+            }
+        }
+        return false;
     }
 
     public static CompoundTag origin(Entity e) {
@@ -230,6 +284,116 @@ public final class MtsBridge {
         }
         if (tag.contains("ForgeData", 10)) tag.getCompound("ForgeData").remove(ORIGIN); // la photo d'origine ne suit pas le véhicule au garage
         return tag;
+    }
+
+    // ------------------------------------------------------------------ véhicule neuf (concession)
+
+    /**
+     * Fait apparaître un véhicule neuf exactement comme MTS quand on pose son item (pièces par défaut du pack comprises),
+     * au point donné. Par réflexion ; false si MTS refuse ou si son API a changé.
+     */
+    public static boolean spawnNew(ServerLevel level, String itemId, double x, double y, double z, float yaw, ServerPlayer placer) {
+        try {
+            Object item = wrapped(itemId);
+            if (item == null) return false;
+            Object world = Class.forName("mcinterface1201.WrapperWorld").getMethod("getWrapperFor", net.minecraft.world.level.Level.class).invoke(null, level);
+            Object player = placer == null ? null
+                    : Class.forName("mcinterface1201.WrapperPlayer").getMethod("getWrapperFor", net.minecraft.world.entity.player.Player.class).invoke(null, placer);
+            Class<?> vehClass = Class.forName("minecrafttransportsimulator.entities.instances.EntityVehicleF_Physics");
+            Object veh = null;
+            for (java.lang.reflect.Constructor<?> c : vehClass.getConstructors()) {
+                if (c.getParameterCount() == 4) veh = c.newInstance(world, player, item, null);
+            }
+            if (veh == null) return false;
+            Class<?> p3 = Class.forName("minecrafttransportsimulator.baseclasses.Point3D");
+            Object pos = field(veh, "position");
+            p3.getMethod("set", double.class, double.class, double.class).invoke(pos, x, y, z);
+            p3.getMethod("set", p3).invoke(field(veh, "prevPosition"), pos);
+            Class<?> rm = Class.forName("minecrafttransportsimulator.baseclasses.RotationMatrix");
+            Object orient = field(veh, "orientation");
+            rm.getMethod("setToAngles", p3).invoke(orient, p3.getConstructor(double.class, double.class, double.class).newInstance(0d, (double) yaw, 0d));
+            rm.getMethod("set", rm).invoke(field(veh, "prevOrientation"), orient);
+            // comme ItemVehicle.onBlockClicked : ajout au monde puis pièces par défaut (données nulles = véhicule neuf)
+            for (java.lang.reflect.Method m : world.getClass().getMethods()) {
+                if (m.getName().equals("spawnEntity") && m.getParameterCount() == 1) {
+                    m.invoke(world, veh);
+                    break;
+                }
+            }
+            for (java.lang.reflect.Method m : vehClass.getMethods()) {
+                if (m.getName().equals("addPartsPostAddition") && m.getParameterCount() == 2) {
+                    m.invoke(veh, player, null);
+                    break;
+                }
+            }
+            return true;
+        } catch (Throwable t) {
+            com.minenorth.vehicles.VehiclesMod.LOGGER.warn("[Vehicules] Apparition directe de {} impossible : {}", itemId, t.toString());
+            return false;
+        }
+    }
+
+    /**
+     * Monte la plaque sur un véhicule déjà apparu : son NBT réel (sauvegardé par MTS, rien n'est perdu) reçoit la pièce
+     * plaque sur chaque emplacement de plaque, puis le véhicule est recréé au même endroit.
+     * @return le véhicule recréé, ou null si aucun emplacement de plaque (le véhicule d'origine reste intact)
+     */
+    public static Entity mountPlate(ServerLevel level, Entity vehicle, String plateItemId, String plate) {
+        try {
+            CompoundTag snap = snapshot(vehicle);
+            Object veh = wrapped(itemId(snap));
+            Object plateItem = wrapped(plateItemId);
+            CompoundTag plateTag = plateItem == null ? null : identity(plateItem);
+            if (veh == null || plateTag == null || !(field(field(veh, "definition"), "parts") instanceof java.util.List<?> slots)) return null;
+            plateTag.putString("textCode", plate);   // même format que la plaque en item (champ « Code » de la pièce)
+            plateTag.putString("textCountry Code", "FR");
+            int n = 0;
+            for (int i = 0; i < slots.size(); i++) {
+                if (!plateSlot(slots.get(i))) continue;
+                snap.put("part_" + i, plateTag.copy());
+                n++;
+            }
+            if (n == 0) return null;
+            Entity again = restore(level, snap, vehicle.getX(), vehicle.getY(), vehicle.getZ());
+            if (again == null) return null;
+            discard(vehicle);
+            level.addFreshEntityWithPassengers(again);
+            return again;
+        } catch (Throwable t) {
+            com.minenorth.vehicles.VehiclesMod.LOGGER.warn("[Vehicules] Plaque non montée : {}", t.toString());
+            return null;
+        }
+    }
+
+    /** Objet MTS derrière l'item Forge (BuilderItem.getWrappedItem), ou null. */
+    private static Object wrapped(String itemId) throws Exception {
+        net.minecraft.world.item.Item it = VehicleConfig.item(itemId);
+        if (it == net.minecraft.world.item.Items.AIR) return null;
+        try {
+            return it.getClass().getMethod("getWrappedItem").invoke(it);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+
+    /** packID / systemName / subName de l'objet MTS, comme dans son NBT. */
+    private static CompoundTag identity(Object wrapped) {
+        Object def = field(wrapped, "definition");
+        if (!(field(def, "packID") instanceof String pack) || !(field(def, "systemName") instanceof String sys)) return null;
+        Object sub = field(field(wrapped, "subDefinition"), "subName");
+        CompoundTag t = new CompoundTag();
+        t.putString("packID", pack);
+        t.putString("systemName", sys);
+        t.putString("subName", sub instanceof String s ? s : "");
+        return t;
+    }
+
+    /** Emplacement de plaque : un type ou une pièce par défaut qui parle de plaque. */
+    private static boolean plateSlot(Object slotDef) {
+        if (field(slotDef, "types") instanceof java.util.List<?> types) {
+            for (Object t : types) if (t instanceof String s && s.toLowerCase(Locale.ROOT).contains("plate")) return true;
+        }
+        return field(slotDef, "defaultPart") instanceof String dp && dp.toLowerCase(Locale.ROOT).contains("plate");
     }
 
     /** Recrée l'entité (non ajoutée au monde) depuis un NBT sauvegardé, à la position donnée. */

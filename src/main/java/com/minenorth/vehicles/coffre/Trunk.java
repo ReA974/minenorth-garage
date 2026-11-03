@@ -52,6 +52,7 @@ import java.util.UUID;
 public final class Trunk {
     public static final String TAG = "mnrp_coffre";
     private static final Map<UUID, TrunkContainer> OPEN = new HashMap<>();
+    private static final Map<UUID, Long> LAST_KEY = new HashMap<>();
 
     private Trunk() {}
 
@@ -66,24 +67,39 @@ public final class Trunk {
         return v == null ? null : v.category;
     }
 
-    /** {base, max} d'emplacements pour ce véhicule, d'après sa catégorie au catalogue. */
-    private static int[] range(Entity e) {
-        String cat = categoryOf(MtsBridge.itemId(MtsBridge.snapshot(e)));
-        int base = TrunkConfig.DEFAULT_BASE.get(), max = TrunkConfig.DEFAULT_MAX.get();
-        if (cat != null) {
-            for (String s : TrunkConfig.SIZES.get()) {
-                String[] p = s.split(";");
-                if (p.length != 3 || !p[0].trim().equalsIgnoreCase(cat.trim())) continue;
-                try {
-                    base = Integer.parseInt(p[1].trim());
-                    max = Integer.parseInt(p[2].trim());
-                } catch (NumberFormatException ignored) {
-                    // ligne illisible : valeurs par défaut
-                }
-                break;
-            }
+    /** {base, max} d'une ligne « nom;base;max » de la config, ou null si illisible. */
+    private static int[] parse(String[] p) {
+        try {
+            return new int[]{Integer.parseInt(p[1].trim()), Integer.parseInt(p[2].trim())};
+        } catch (NumberFormatException ex) {
+            return null;
         }
-        base = round9(base);
+    }
+
+    /** Ligne de la liste dont le nom est {@code key} : nom exact d'abord, sinon le premier nom contenu dans {@code key}. */
+    private static int[] lookup(List<? extends String> lines, String key) {
+        if (key == null || key.isBlank()) return null;
+        String k = key.trim().toLowerCase(java.util.Locale.ROOT);
+        int[] partial = null;
+        for (String s : lines) {
+            String[] p = s.split(";");
+            if (p.length != 3) continue;
+            String n = p[0].trim().toLowerCase(java.util.Locale.ROOT);
+            if (n.isEmpty()) continue;
+            if (n.equals(k)) return parse(p);
+            if (partial == null && k.contains(n)) partial = parse(p);
+        }
+        return partial;
+    }
+
+    /** {base, max} d'emplacements : catégorie du catalogue (moto, citadine, berline, utilitaire...), sinon type terre / air / mer. */
+    private static int[] range(Entity e) {
+        CompoundTag snap = MtsBridge.snapshot(e);
+        String itemId = MtsBridge.itemId(snap);
+        int[] r = lookup(TrunkConfig.SIZES.get(), categoryOf(itemId));
+        if (r == null) r = lookup(TrunkConfig.TYPE_SIZES.get(), com.minenorth.vehicles.garage.VehicleType.of(itemId, snap).name());
+        int base = round9(r == null ? TrunkConfig.DEFAULT_BASE.get() : r[0]);
+        int max = r == null ? TrunkConfig.DEFAULT_MAX.get() : r[1];
         return new int[]{base, Math.max(base, round9(max))};
     }
 
@@ -131,6 +147,28 @@ public final class Trunk {
         if (p.distanceTo(e) > TrunkConfig.DISTANCE.get() + 2) return false;
         UUID owner = MtsBridge.ownerOf(e);
         return owner != null && owner.equals(p.getUUID()) || !MtsBridge.isLocked(e);
+    }
+
+    /** Porte du coffre ouverte dans MTS (modèle sans porte reconnue : selon la config). */
+    private static boolean trunkOpen(Entity e) {
+        Boolean open = MtsBridge.trunkOpen(e, TrunkConfig.TRUNK_VARIABLES.get());
+        return open == null ? TrunkConfig.UNKNOWN_OPEN.get() : open;
+    }
+
+    /** Peut-il fouiller le contenu ? Avec {@code coffreOuvertRequis} : à portée, véhicule déverrouillé et coffre ouvert, pour tout le monde. */
+    private static boolean canOpen(ServerPlayer p, Entity e) {
+        if (!TrunkConfig.NEED_OPEN.get()) return canUse(p, e);
+        if (!TrunkConfig.ENABLED.get() || e.isRemoved() || e.level() != p.level() || p.isSpectator()) return false;
+        return p.distanceTo(e) <= TrunkConfig.DISTANCE.get() + 2 && !MtsBridge.isLocked(e) && trunkOpen(e);
+    }
+
+    /** Pourquoi le contenu est refusé, en clair. */
+    private static String refusal(ServerPlayer p, Entity e) {
+        if (p.distanceTo(e) > TrunkConfig.DISTANCE.get() + 2) return "&cTu es trop loin du véhicule.";
+        if (MtsBridge.isLocked(e)) return TrunkConfig.NEED_OPEN.get() ? "&cVoiture verrouillée : déverrouille-la pour accéder au coffre."
+                : "&cCe véhicule est verrouillé : son coffre est inaccessible.";
+        if (TrunkConfig.NEED_OPEN.get() && !trunkOpen(e)) return "&cLe coffre est fermé : ouvre la porte du coffre pour y accéder.";
+        return "&cCoffre inaccessible.";
     }
 
     private static boolean isOwner(ServerPlayer p, Entity e) {
@@ -192,7 +230,7 @@ public final class Trunk {
 
         @Override
         public boolean stillValid(Player player) {
-            return !gone() && player instanceof ServerPlayer sp && canUse(sp, vehicle);
+            return !gone() && player instanceof ServerPlayer sp && canOpen(sp, vehicle);
         }
 
         @Override
@@ -221,10 +259,10 @@ public final class Trunk {
         };
     }
 
-    /** Ouvre le coffre (après les mêmes contrôles que le menu). */
+    /** Ouvre le contenu du coffre (contrôles refaits ici, quel que soit le chemin : touche, menu, clic accroupi). */
     private static void openChest(ServerPlayer p, Entity e) {
-        if (!canUse(p, e)) {
-            Msg.send(p, MtsBridge.isLocked(e) ? "&cCe véhicule est verrouillé : son coffre est inaccessible." : "&cTu es trop loin du véhicule.");
+        if (!canOpen(p, e)) {
+            Msg.send(p, refusal(p, e));
             return;
         }
         TrunkContainer c = OPEN.get(e.getUUID());
@@ -237,6 +275,49 @@ public final class Trunk {
         String id = MtsBridge.itemId(MtsBridge.snapshot(e));
         Component title = Gui.comp("&aCoffre - " + Garage.labelOf(id, MtsBridge.snapshot(e)));
         p.openMenu(new SimpleMenuProvider((wid, inv, pl) -> new ChestMenu(typeOf(rows), wid, inv, (Container) fc, rows), title));
+    }
+
+    // ------------------------------------------------------------------ touche C
+
+    /** Véhicule visé (rayon du regard dans sa boîte), sinon le plus proche dont la boîte est à portée des yeux. */
+    private static Entity keyTarget(ServerPlayer p) {
+        double reach = TrunkConfig.DISTANCE.get();
+        net.minecraft.world.phys.Vec3 eye = p.getEyePosition(), end = eye.add(p.getLookAngle().scale(reach));
+        Entity aimed = null, near = null;
+        double ad = Double.MAX_VALUE, nd = Double.MAX_VALUE;
+        for (Entity v : p.serverLevel().getEntities((Entity) null, p.getBoundingBox().inflate(reach + 8), MtsBridge::isVehicle)) {
+            net.minecraft.world.phys.AABB box = v.getBoundingBox().inflate(0.3);
+            java.util.Optional<net.minecraft.world.phys.Vec3> hit = box.clip(eye, end);
+            if (box.contains(eye)) hit = java.util.Optional.of(eye);
+            if (hit.isPresent() && hit.get().distanceToSqr(eye) < ad) {
+                ad = hit.get().distanceToSqr(eye);
+                aimed = v;
+            }
+            double d = box.distanceToSqr(eye);
+            if (d <= reach * reach && d < nd) {
+                nd = d;
+                near = v;
+            }
+        }
+        return aimed != null ? aimed : near;
+    }
+
+    /** Touche « Coffre du véhicule » (paquet client) : tout est revérifié ici, le client n'envoie que l'appui. */
+    public static void openByKey(ServerPlayer p) {
+        if (!TrunkConfig.KEY.get() || p.isSpectator() || p.isPassenger() || p.containerMenu != p.inventoryMenu) return;
+        long now = p.getServer().getTickCount();
+        Long last = LAST_KEY.put(p.getUUID(), now);
+        if (last != null && now - last < 10) return;                    // appuis répétés : une ouverture par demi-seconde
+        if (!TrunkConfig.ENABLED.get()) {
+            Msg.send(p, "&cLe coffre des véhicules est désactivé.");
+            return;
+        }
+        Entity e = keyTarget(p);
+        if (e == null) {
+            Msg.send(p, "&cAucun véhicule devant toi : approche-toi de son coffre.");
+            return;
+        }
+        openChest(p, e);
     }
 
     // ------------------------------------------------------------------ menus

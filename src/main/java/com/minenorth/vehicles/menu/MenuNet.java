@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Mod.EventBusSubscriber(modid = VehiclesMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class MenuNet {
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "4";
     /** Le canal accepte un client qui ne l'a pas : ces joueurs retombent sur les menus coffre. */
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(VehiclesMod.MODID, "menus"), () -> PROTOCOL,
@@ -53,6 +53,25 @@ public final class MenuNet {
         }
     }
 
+    /** Écrans dédiés (concession, garage) : le serveur garde la main sur chaque action. */
+    @FunctionalInterface
+    public interface ScreenHandler {
+        void act(ScreenActionPacket m);
+    }
+
+    private static final class ScreenSession {
+        final int id;
+        final ScreenHandler handler;
+        long lastClick = -1000;
+
+        ScreenSession(int id, ScreenHandler handler) {
+            this.id = id;
+            this.handler = handler;
+        }
+    }
+
+    private static final Map<UUID, ScreenSession> SCREENS = new ConcurrentHashMap<>();
+
     private MenuNet() {}
 
     @SubscribeEvent
@@ -61,7 +80,12 @@ public final class MenuNet {
             int id = 0;
             CHANNEL.registerMessage(id++, OpenMenuPacket.class, OpenMenuPacket::encode, OpenMenuPacket::decode, OpenMenuPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
             CHANNEL.registerMessage(id++, MenuClickPacket.class, MenuClickPacket::encode, MenuClickPacket::decode, MenuClickPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
+            CHANNEL.registerMessage(id++, OpenShopPacket.class, OpenShopPacket::encode, OpenShopPacket::decode, OpenShopPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+            CHANNEL.registerMessage(id++, OpenGaragePacket.class, OpenGaragePacket::encode, OpenGaragePacket::decode, OpenGaragePacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+            CHANNEL.registerMessage(id++, OpenSalePacket.class, OpenSalePacket::encode, OpenSalePacket::decode, OpenSalePacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_CLIENT));
+            CHANNEL.registerMessage(id++, ScreenActionPacket.class, ScreenActionPacket::encode, ScreenActionPacket::decode, ScreenActionPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
             CHANNEL.registerMessage(id++, CloseMenuPacket.class, CloseMenuPacket::encode, CloseMenuPacket::decode, CloseMenuPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
+            CHANNEL.registerMessage(id++, TrunkKeyPacket.class, TrunkKeyPacket::encode, TrunkKeyPacket::decode, TrunkKeyPacket::handle, java.util.Optional.of(net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER));
         });
     }
 
@@ -89,6 +113,26 @@ public final class MenuNet {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> p), new OpenMenuPacket(id, title, r, slots));
     }
 
+    /** Nouvel écran dédié : id à mettre dans le paquet d'ouverture ; remplace l'écran précédent du joueur. */
+    public static int openScreen(ServerPlayer p, ScreenHandler handler) {
+        int id = NEXT_ID.incrementAndGet();
+        SCREENS.put(p.getUUID(), new ScreenSession(id, handler));
+        return id;
+    }
+
+    public static void send(ServerPlayer p, Object packet) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> p), packet);
+    }
+
+    static void handleAction(ServerPlayer p, ScreenActionPacket m) {
+        ScreenSession s = SCREENS.get(p.getUUID());
+        if (s == null || s.id != m.screenId) return;                    // écran périmé : ignoré
+        long now = p.getServer().getTickCount();
+        if (now - s.lastClick < CLICK_COOLDOWN_TICKS) return;
+        s.lastClick = now;
+        s.handler.act(m);
+    }
+
     static void handleClick(ServerPlayer p, MenuClickPacket m) {
         Session s = SESSIONS.get(p.getUUID());
         if (s == null || s.id != m.menuId) return;                     // menu périmé : ignoré
@@ -102,6 +146,8 @@ public final class MenuNet {
     static void handleClose(ServerPlayer p, CloseMenuPacket m) {
         Session s = SESSIONS.get(p.getUUID());
         if (s != null && s.id == m.menuId) SESSIONS.remove(p.getUUID());
+        ScreenSession sc = SCREENS.get(p.getUUID());
+        if (sc != null && sc.id == m.menuId) SCREENS.remove(p.getUUID());
     }
 
     @Mod.EventBusSubscriber(modid = VehiclesMod.MODID)
@@ -111,6 +157,7 @@ public final class MenuNet {
         @SubscribeEvent
         public static void onLogout(PlayerEvent.PlayerLoggedOutEvent e) {
             SESSIONS.remove(e.getEntity().getUUID());
+            SCREENS.remove(e.getEntity().getUUID());
         }
     }
 }

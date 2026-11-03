@@ -20,6 +20,8 @@ public final class Catalog {
     public static final class Vehicle {
         public String category, model, color, item, type;
         public int price;
+        /** Fiche affichée dans la concession (optionnelle, 0 = masquée) : places, coffre (emplacements), vitesse max (km/h). */
+        public int seats, trunk, speed;
     }
 
     public static final List<Vehicle> VEHICLES = new ArrayList<>();
@@ -41,7 +43,7 @@ public final class Catalog {
                 "Bleu": "minecraft:blue_stained_glass"
               },
               "vehicles": [
-                { "category": "Moto", "model": "Minsk", "color": "Défaut", "item": "mts:cmacitizenstransport.minsk", "price": 4000 },
+                { "category": "Moto", "model": "Minsk", "color": "Défaut", "item": "mts:cmacitizenstransport.minsk", "price": 4000, "seats": 2, "speed": 95 },
                 { "category": "Moto", "model": "Minsk", "color": "Noir", "item": "mts:cmacitizenstransport.minsk_black", "price": 4000 }
               ]
             }
@@ -96,6 +98,9 @@ public final class Catalog {
                 v.item = o.get("item").getAsString();
                 v.type = o.has("type") ? o.get("type").getAsString() : null;
                 v.price = o.get("price").getAsInt();
+                v.seats = o.has("seats") ? o.get("seats").getAsInt() : 0;
+                v.trunk = o.has("trunk") ? o.get("trunk").getAsInt() : 0;
+                v.speed = o.has("speed") ? o.get("speed").getAsInt() : 0;
                 VEHICLES.add(v);
                 if (!CATEGORIES.contains(v.category)) CATEGORIES.add(v.category);
             }

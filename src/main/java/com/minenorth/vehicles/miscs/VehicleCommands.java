@@ -108,7 +108,11 @@ public final class VehicleCommands {
         // voir / retirer / vider le garage d'un joueur : panneau /mnadmin (mod minenorth_admin)
         d.register(Commands.literal("garageadmin").requires(VehicleCommands::admin)
                 .then(Commands.literal("add").then(Commands.argument("target", GameProfileArgument.gameProfile())
-                        .executes(VehicleCommands::adminAdd))));
+                        .executes(VehicleCommands::adminAdd)))
+                .then(Commands.literal("rangertout").executes(c -> {
+                    for (String line : Garage.storeAll(c.getSource().getServer())) say(c.getSource(), line);
+                    return 1;
+                })));
 
         // --- Diagnostic MTS ---
         d.register(Commands.literal("vehicledebug").requires(VehicleCommands::admin).executes(c -> debug(c.getSource())));

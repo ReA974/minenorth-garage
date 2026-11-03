@@ -8,5 +8,7 @@
   "item.minenorth_rp_vehicles.tablette_garage": "Tablette garage",
   "item.minenorth_rp_vehicles.tablette_garage.tooltip": "Clic droit : ouvre le menu du garage (/garagemenu). Admin.",
   "item.minenorth_rp_vehicles.tablette_concessionnaire": "Tablette concessionnaire",
-  "item.minenorth_rp_vehicles.tablette_concessionnaire.tooltip": "Clic droit : ouvre la boutique de véhicules (/vendeurvehicule). Admin."
+  "item.minenorth_rp_vehicles.tablette_concessionnaire.tooltip": "Clic droit : ouvre la boutique de véhicules (/vendeurvehicule). Admin.",
+  "key.minenorth_rp_vehicles.coffre": "Coffre du véhicule",
+  "key.categories.minenorth": "MineNorth"
 }

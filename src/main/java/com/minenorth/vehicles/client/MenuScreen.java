@@ -268,11 +268,16 @@ public class MenuScreen extends Screen {
         g.fill(x + CW - 1, y, x + CW, y + CH, edge);
         if (hov) g.fill(x, y, x + 2, y + CH, CYAN);
 
-        g.pose().pushPose();
-        g.pose().translate(x + 7, y + 6, 0);
-        g.pose().scale(1.75f, 1.75f, 1f);
-        g.renderItem(st, 0, 0);
-        g.pose().popPose();
+        Object[] icon = MineNorthStyle.iconFor(st);   // items Minecraft de base : pictogramme à la place
+        if (icon != null) {
+            MineNorthStyle.badge(g, font, (String) icon[0], x + 7, y + 6, 28, (int) icon[1]);
+        } else {
+            g.pose().pushPose();
+            g.pose().translate(x + 7, y + 6, 0);
+            g.pose().scale(1.75f, 1.75f, 1f);
+            g.renderItem(st, 0, 0);
+            g.pose().popPose();
+        }
 
         int tx = x + 42, tw = CW - 46;
         firstLine(g, st.getHoverName(), tx, y + 5, tw, 0xFFFFFFFF);

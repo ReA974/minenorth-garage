@@ -196,6 +196,68 @@ public final class Garage {
         return true;
     }
 
+    /**
+     * Range dans le garage (civil) de leur propriétaire tous les véhicules posés dans les zones chargées, comme un rangement
+     * normal (NBT complet). Les véhicules sans propriétaire et ceux dont le garage est plein restent en place.
+     * Marche aussi pour les joueurs hors ligne (le garage est lu par UUID).
+     * @return compte rendu à afficher, une ligne par entrée
+     */
+    public static List<String> storeAll(net.minecraft.server.MinecraftServer server) {
+        GarageData data = GarageData.get(server);
+        int max = VehicleConfig.GARAGE_MAX.get();
+        java.util.Map<UUID, int[]> perOwner = new java.util.LinkedHashMap<>();   // {rangés, garage plein}
+        List<String> noOwner = new ArrayList<>();
+        for (ServerLevel level : server.getAllLevels()) {
+            List<Entity> found = new ArrayList<>();
+            for (Entity e : level.getAllEntities()) if (MtsBridge.isVehicle(e) && !e.isRemoved()) found.add(e);
+            for (Entity e : found) {
+                UUID owner = MtsBridge.ownerOf(e);
+                if (owner == null) {
+                    noOwner.add(level.dimension().location().getPath() + " " + e.blockPosition().toShortString());
+                    continue;
+                }
+                int[] c = perOwner.computeIfAbsent(owner, k -> new int[2]);
+                List<GarageData.Stored> list = data.of(owner);
+                if (list.size() >= max) {
+                    c[1]++;
+                    continue;
+                }
+                for (ServerPlayer rider : server.getPlayerList().getPlayers()) {   // personne ne reste assis dans un véhicule rangé
+                    if (rider.level() == level && rider.getVehicle() != null && MtsBridge.vehicleOf(rider) == e) rider.stopRiding();
+                }
+                CompoundTag snap = MtsBridge.snapshot(e);
+                GarageData.Stored st = new GarageData.Stored();
+                st.nbt = snap;
+                st.itemId = MtsBridge.itemId(snap);
+                st.label = labelOf(st.itemId, snap);
+                MtsBridge.discard(e);
+                list.add(st);
+                c[0]++;
+            }
+        }
+        data.setDirty();
+
+        List<String> out = new ArrayList<>();
+        int stored = 0, full = 0;
+        for (java.util.Map.Entry<UUID, int[]> en : perOwner.entrySet()) {
+            stored += en.getValue()[0];
+            full += en.getValue()[1];
+            String name = server.getProfileCache() == null ? null
+                    : server.getProfileCache().get(en.getKey()).map(com.mojang.authlib.GameProfile::getName).orElse(null);
+            out.add("&7- &f" + (name == null ? en.getKey().toString() : name) + "&7 : &a" + en.getValue()[0] + " rangé(s)"
+                    + (en.getValue()[1] > 0 ? "&7, &c" + en.getValue()[1] + " laissé(s) (garage plein " + max + "/" + max + ")" : ""));
+            ServerPlayer online = server.getPlayerList().getPlayer(en.getKey());
+            if (online != null && en.getValue()[0] > 0) {
+                Msg.send(online, "&eLe staff a rangé " + en.getValue()[0] + " de tes véhicules dans ton garage (intacts).");
+            }
+        }
+        out.add(0, "&aRangement terminé : &f" + stored + "&a véhicule(s) rangé(s), &c" + full + "&a laissé(s) (garage plein), &e"
+                + noOwner.size() + "&a sans propriétaire (laissés en place).");
+        for (String pos : noOwner) out.add("&8  sans propriétaire : " + pos);
+        out.add("&8Seules les zones chargées sont parcourues : les véhicules dans des chunks déchargés ne sont pas touchés.");
+        return out;
+    }
+
     /** true (et message) si le joueur est dans une zone garage mais qu'aucune ne prend ce type de véhicule. */
     private static boolean refusedHere(ServerPlayer p, VehicleType type) {
         GarageData.Zone any = zoneAt(p);
@@ -326,6 +388,10 @@ public final class Garage {
             if (!serviceZoneDenied(p)) Msg.send(p, "&cTu dois être près d'un garage pour utiliser cette commande.");
             return;
         }
+        if (customScreen(p)) {
+            openScreen(p);
+            return;
+        }
         String svcHere = zoneAt(p).service;
         boolean copGarage = !svcHere.isEmpty();
         // Écran à deux colonnes (ordre des slots) : gauche = Rentrer, Coffre, Filtre ; droite = Voir mon garage (action principale), Assurer, Vendre.
@@ -408,7 +474,78 @@ public final class Garage {
                 "&8Clique pour changer de type");
     }
 
+    private static boolean customScreen(ServerPlayer p) {
+        return VehicleConfig.CUSTOM_GUI.get() && com.minenorth.vehicles.menu.MenuNet.hasClientMod(p);
+    }
+
+    /**
+     * Écran garage (joueurs avec le mod) : liste des véhicules avec aperçu 3D et actions.
+     * Hors zone garage (ex. onglet « Mon garage » de la concession) : consultation seule du garage civil.
+     */
+    public static void openScreen(ServerPlayer p) {
+        GarageData.Zone zone = zoneAt(p);
+        boolean svc = zone != null && !zone.service.isEmpty();
+        List<GarageData.Stored> all = GarageData.get(p.getServer()).of(zone != null ? keyHere(p) : p.getUUID());
+        List<com.minenorth.vehicles.menu.OpenGaragePacket.Car> cars = new ArrayList<>();
+        for (int i = 0; i < all.size(); i++) {
+            GarageData.Stored s = all.get(i);
+            VehicleType t = typeOf(s);
+            if (zone != null && zoneAt(p, t) == null) continue;   // la zone masque les types qu'elle n'accepte pas (terre / air / mer)
+            cars.add(new com.minenorth.vehicles.menu.OpenGaragePacket.Car(i, s.label, s.itemId == null ? "" : s.itemId, t.name(),
+                    MtsBridge.isInsured(s.nbt), zone != null && zoneAt(p, t) != null,
+                    (int) fr.minenorth.api.MineNorth.discounted(p.getServer(), p.getUUID(), com.minenorth.vehicles.assurance.Insurance.price(s.itemId))));
+        }
+        int id = com.minenorth.vehicles.menu.MenuNet.openScreen(p, m -> screenAction(p, m));
+        String title = svc ? "Garage " + serviceLabel(zone.service) : "Mon garage";
+        com.minenorth.vehicles.menu.MenuNet.send(p, new com.minenorth.vehicles.menu.OpenGaragePacket(id, title,
+                VehicleConfig.GARAGE_MAX.get(), zone != null, svc, handMode(p), cars));
+    }
+
+    private static void screenAction(ServerPlayer p, com.minenorth.vehicles.menu.ScreenActionPacket m) {
+        if (zoneAt(p) == null) {   // toutes les actions demandent d'être au garage (re-vérifié : le joueur a pu partir)
+            if (!serviceZoneDenied(p)) Msg.send(p, "&cVa dans une zone garage pour gérer tes véhicules.");
+            return;
+        }
+        boolean svc = !zoneAt(p).service.isEmpty();
+        switch (m.action) {
+            case com.minenorth.vehicles.menu.ScreenActionPacket.RETRIEVE -> {
+                List<GarageData.Stored> list = GarageData.get(p.getServer()).of(keyHere(p));
+                // la liste a pu changer depuis l'ouverture : on vérifie que l'index désigne toujours ce véhicule
+                if (m.a < 0 || m.a >= list.size() || !m.text.equals(list.get(m.a).itemId == null ? "" : list.get(m.a).itemId)) {
+                    Msg.send(p, "&cTon garage a changé, réessaie.");
+                    openScreen(p);
+                    return;
+                }
+                retrieve(p, m.a);
+            }
+            case com.minenorth.vehicles.menu.ScreenActionPacket.STORE -> storeNearby(p);
+            case com.minenorth.vehicles.menu.ScreenActionPacket.TRUNK -> com.minenorth.vehicles.coffre.Trunk.openNearest(p);
+            case com.minenorth.vehicles.menu.ScreenActionPacket.INSURE -> {
+                if (svc) return;
+                List<GarageData.Stored> list = GarageData.get(p.getServer()).of(keyHere(p));
+                if (m.a >= 0 && m.a < list.size() && m.text.equals(list.get(m.a).itemId == null ? "" : list.get(m.a).itemId)) {
+                    com.minenorth.vehicles.assurance.Insurance.insureStored(p, list.get(m.a));
+                } else Msg.send(p, "&cTon garage a changé, réessaie.");
+                openScreen(p);   // badge « Assuré » et bouton à jour
+            }
+            case com.minenorth.vehicles.menu.ScreenActionPacket.SELL -> {
+                if (!svc) VehicleSale.openSell(p, m.a, m.text);
+            }
+            case com.minenorth.vehicles.menu.ScreenActionPacket.TOGGLE_MODE -> {
+                toggleMode(p);
+                openScreen(p);
+            }
+            default -> {
+            }
+        }
+    }
+
     public static void openList(ServerPlayer p) {
+        if (customScreen(p)) {
+            if (zoneAt(p) != null) openScreen(p);
+            else if (!serviceZoneDenied(p)) Msg.send(p, "&cTu dois être près d'un garage.");
+            return;
+        }
         GarageData data = GarageData.get(p.getServer());
         List<GarageData.Stored> all = data.of(keyHere(p));
         if (all.isEmpty()) {

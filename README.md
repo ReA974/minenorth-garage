@@ -19,6 +19,10 @@ Les commandes de PNJ (`garagemenu`, `fourrieremenu`, `vendeur`, `vendeurvehicule
 | `/vente refuser` | L'acheteur refuse la proposition. |
 | `/vente annuler` | Le vendeur annule sa proposition. |
 
+Avec le mod côté client, le bouton « Vendre » de l'écran du garage ouvre un écran de vente : véhicule (celui choisi dans le garage est présélectionné), acheteur parmi les joueurs proches (le plus proche en premier, affiché avec son nom RP de carte d'identité) et prix. L'acheteur reçoit un écran avec l'offre (vendeur, véhicule, plaque, prix, son solde) à accepter ou refuser ; les boutons du chat restent disponibles.
+
+Le bouton « Assurer » de l'écran du garage assure directement le véhicule sélectionné dans la liste, même rangé (carte si possible, sinon espèces ; même prix que le menu d'assurance).
+
 ### Immatriculations (police ou OP)
 
 La police est déterminée par le mod Police via l'API MineNorth. Les sous-commandes d'écriture sont réservées aux OP.
@@ -44,6 +48,7 @@ La police est déterminée par le mod Police via l'API MineNorth. Les sous-comma
 | `/garagezone settype <nom> <types>` | Définit les types de véhicules acceptés dans la zone. |
 | `/garagezone remove <nom>` | Supprime la zone. |
 | `/garageadmin add <joueur>` | Ajoute un véhicule au garage d'un joueur. |
+| `/garageadmin rangertout` | Range tous les véhicules posés (zones chargées) dans le garage de leur propriétaire, même hors ligne, intacts. Compte rendu par joueur ; les véhicules sans propriétaire et ceux dont le garage est plein restent en place. |
 | `/vehicledebug` | Diagnostic MTS. |
 
 Voir, retirer ou vider le garage et la fourrière d'un joueur : panneau `/mnadmin` (mod `minenorth_admin`).
@@ -62,6 +67,12 @@ Voir, retirer ou vider le garage et la fourrière d'un joueur : panneau `/mnadmi
 | `/vendeurzone list` | Liste les zones. |
 | `/vloaddata` ou `/vehicleshop reload` | Recharge `catalog.json`. |
 | `/vehicleshop check` | Vérifie que les objets du catalogue existent. |
+
+À l'achat, MTS fait apparaître le véhicule directement au centre de la zone de sortie (avec ses pièces d'origine, comme si on posait l'item), au nom de l'acheteur. Un instant après, la plaque (`mts:gvp.eu_plate`) est montée sur chaque emplacement de plaque du modèle, avec l'immatriculation enregistrée au fichier, et le plein est fait (`fillFuel`). La clé est donnée comme avant. Si le modèle n'a pas d'emplacement de plaque reconnu, les plaques sont données en main ; si l'apparition échoue, l'acheteur reçoit l'item à poser dans la zone (ancien fonctionnement).
+
+Écran de la concession : champ de recherche (nom du modèle ou catégorie, sans accents ni majuscules) et pastilles de catégorie toutes visibles (« Tous » + une par catégorie, avec le nombre de modèles) : un clic pour filtrer. Quand la place manque, une pastille « + n » ouvre un panneau avec les catégories restantes.
+
+Fiche affichée dans l'écran de la concession : champs optionnels `"seats"`, `"trunk"` et `"speed"` (km/h) sur chaque véhicule de `catalog.json`.
 
 ### Fourrière (admin)
 
@@ -94,10 +105,13 @@ Viser une pompe MTS à moins de 6 blocs.
 ## Coffre des véhicules et extension de coffre
 
 Chaque véhicule a un coffre serveur (sans commande, interface seulement). Il s'ouvre en **accroupi + clic droit à mains vides** sur le véhicule
-(option `clicAccroupi`), ou par « Coffre du véhicule » dans le menu du garage. Le menu propose d'ouvrir le coffre et d'acheter une extension.
+(option `clicAccroupi`), ou par « Coffre du véhicule » dans l'ancien menu coffre du garage (l'écran du garage n'a plus de bouton Coffre). Le menu propose d'ouvrir le coffre et d'acheter une extension.
 
-- **Taille** : selon la catégorie du catalogue (`config/minenorth-coffre.toml`, `[tailles] categories`, format `Catégorie;base;max`, multiples de 9, 9 à 54), valeur par défaut pour les catégories inconnues. Les anciens véhicules reçoivent leur coffre à la première ouverture.
+- **Taille** : selon la catégorie du catalogue (`config/minenorth-coffre.toml`, `[tailles] categories`, format `Catégorie;base;max`, multiples de 9, 9 à 54 : scooter/moto petits, citadine moyenne, berline/SUV plus grands, utilitaire/camion très grands). Le nom peut n'être qu'une partie de la catégorie (« Moto » vaut pour « Motos »). Sinon taille par type (`[tailles] types` : `terre`, `air`, `mer`), puis valeur par défaut. Un coffre déjà plus rempli que sa nouvelle taille garde tout son contenu. Sur un serveur existant, les nouvelles listes par défaut ne remplacent pas celles déjà écrites dans le fichier de config : les recopier à la main. Les anciens véhicules reçoivent leur coffre à la première ouverture.
 - **Extension** : paliers payants (espèces ou carte, remise de grade appliquée), `emplacementsParPalier` et `prixDesPaliers` configurables, jusqu'au maximum de la catégorie ; réservée au propriétaire, liée au véhicule. `zoneGarageRequise` impose une zone garage.
-- **Accès** : véhicule verrouillé (MTS) = coffre fermé sauf pour son propriétaire ; les OP suivent les mêmes règles. Tout est contrôlé côté serveur.
+- **Touche C** (« Coffre du véhicule », catégorie MineNorth d'Options › Commandes, réglable) : à pied, ouvre directement le contenu du coffre du véhicule visé (sinon du plus proche, à `distanceMax` blocs). Assis dans un véhicule, la touche ne fait rien de plus : C reste le klaxon de MTS. Le client n'envoie que l'appui (paquet `TrunkKeyPacket`, sans donnée) ; le serveur choisit le véhicule et refait tous les contrôles. Option `toucheCoffre`.
+- **Accès** (`coffreOuvertRequis`, vrai par défaut) : pour fouiller un coffre, par la touche, le clic accroupi ou le menu, le véhicule doit être **déverrouillé** et son **coffre ouvert** (porte du coffre ouverte dans MTS), propriétaire et OP compris. Sinon : « Voiture verrouillée : déverrouille-la pour accéder au coffre. » ou « Le coffre est fermé : ouvre la porte du coffre pour y accéder. ». Le coffre se referme si quelqu'un verrouille le véhicule, ferme la porte ou s'éloigne pendant l'usage. Le menu (extension) reste accessible au propriétaire d'un véhicule verrouillé. Sur `false`, ancien fonctionnement : verrouillé = accessible au seul propriétaire, porte ignorée.
+- **Porte du coffre** : lue dans MTS par réflexion. D'abord l'emplacement de coffre du modèle (type contenant `trunk`, par exemple `interactable_crate_trunk` du pack New Cars) et ses `interactableVariables` (ex. `door_b`) ; sinon une variable de `variablesPorteCoffre` (`door_trunk`, `trunk`, `hatchback`, `door_tailgate`...) déjà présente sur le véhicule. Modèle sans porte reconnue : `sansPorteCoffreOuvert` (vrai = seul le verrouillage compte).
+- **Verrouillage** : MTS 24 range le verrou dans la variable `lockedVar` du véhicule ; avant ce correctif, le garage lisait un champ `locked` disparu et voyait tous les véhicules déverrouillés.
 - **Persistance** : contenu et palier sont dans les données de l'entité (`mnrp_coffre`) : ils suivent le véhicule au garage, à la fourrière et à la vente. Un seul conteneur partagé par véhicule, pas de duplication.
 - **Disparition hors garage** (destruction, revente au receleur du mod vol, ramassage) : le contenu est lâché au sol avant la suppression. L'assurance rend le véhicule avec le palier mais un coffre vide.

@@ -60,6 +60,84 @@ public final class VehicleSale {
 
     // ------------------------------------------------------------------ choix du véhicule
 
+    /** Bouton « Vendre » du garage : écran de vente (joueurs avec le mod), sinon menu coffre + /vente. */
+    public static void openSell(ServerPlayer p, int preIndex, String preItem) {
+        if (VehicleConfig.CUSTOM_GUI.get() && com.minenorth.vehicles.menu.MenuNet.hasClientMod(p)) openScreen(p, preIndex, preItem);
+        else openSell(p);
+    }
+
+    /** Nom RP (carte d'identité) du joueur, à défaut son nom affiché. */
+    private static String rpName(ServerPlayer pl) {
+        String[] id = com.minenorth.vehicles.registry.IdentityBridge.identity(pl.getServer(), pl.getUUID());
+        if (id != null && !(id[0] + id[1]).isBlank()) return (id[0] + " " + id[1]).trim();
+        return MineNorth.displayName(pl);
+    }
+
+    /** Écran du vendeur : ses véhicules (avec plaque) et les acheteurs à portée, le plus proche en premier. */
+    private static void openScreen(ServerPlayer p, int preIndex, String preItem) {
+        MinecraftServer server = p.getServer();
+        List<GarageData.Stored> list = GarageData.get(server).of(p.getUUID());
+        if (list.isEmpty()) {
+            Msg.send(p, "&cTon garage est vide : aucun véhicule à vendre.");
+            return;
+        }
+        List<com.minenorth.vehicles.menu.OpenSalePacket.Car> cars = new java.util.ArrayList<>();
+        int pre = -1;
+        for (int i = 0; i < list.size(); i++) {
+            GarageData.Stored s = list.get(i);
+            String plate = findPlate(server, p.getUUID(), s.nbt);
+            cars.add(new com.minenorth.vehicles.menu.OpenSalePacket.Car(i, s.label, s.itemId == null ? "" : s.itemId, plate == null ? "" : plate));
+            if (i == preIndex && preItem != null && preItem.equals(s.itemId)) pre = i;
+        }
+        double range = VehicleConfig.SALE_DISTANCE.get() > 0 ? VehicleConfig.SALE_DISTANCE.get() : 32;
+        List<ServerPlayer> near = new java.util.ArrayList<>();
+        for (ServerPlayer o : server.getPlayerList().getPlayers()) {
+            if (o != p && o.level() == p.level() && o.distanceTo(p) <= range && !o.isSpectator()) near.add(o);
+        }
+        near.sort(java.util.Comparator.comparingDouble(o -> o.distanceTo(p)));
+        List<com.minenorth.vehicles.menu.OpenSalePacket.Buyer> buyers = new java.util.ArrayList<>();
+        for (ServerPlayer o : near.subList(0, Math.min(12, near.size()))) {
+            buyers.add(new com.minenorth.vehicles.menu.OpenSalePacket.Buyer(o.getUUID().toString(), rpName(o), Math.round(o.distanceTo(p))));
+        }
+        int id = com.minenorth.vehicles.menu.MenuNet.openScreen(p, m -> {
+            if (m.action != com.minenorth.vehicles.menu.ScreenActionPacket.SALE_PROPOSE) return;
+            String[] parts = m.text.split("\\|", 2);
+            List<GarageData.Stored> now = GarageData.get(server).of(p.getUUID());
+            if (parts.length < 2 || m.a < 0 || m.a >= now.size() || !parts[1].equals(now.get(m.a).itemId == null ? "" : now.get(m.a).itemId)) {
+                Msg.send(p, "&cTon garage a changé, réessaie.");
+                return;
+            }
+            ServerPlayer buyer;
+            try {
+                buyer = server.getPlayerList().getPlayer(UUID.fromString(parts[0]));
+            } catch (IllegalArgumentException ex) {
+                buyer = null;
+            }
+            if (buyer == null) {
+                Msg.send(p, "&cCet acheteur n'est plus connecté.");
+                return;
+            }
+            if (m.b < 1) {
+                Msg.send(p, "&cIndique un prix.");
+                return;
+            }
+            propose(p, buyer, now.get(m.a), m.b);
+        });
+        com.minenorth.vehicles.menu.MenuNet.send(p, new com.minenorth.vehicles.menu.OpenSalePacket(id, pre, VehicleConfig.SALE_MAX_PRICE.get(), cars, buyers, null));
+    }
+
+    /** Écran de l'acheteur : l'offre à accepter ou refuser (en plus des boutons du chat). */
+    private static void showOffer(ServerPlayer buyer, Offer o) {
+        if (!VehicleConfig.CUSTOM_GUI.get() || !com.minenorth.vehicles.menu.MenuNet.hasClientMod(buyer)) return;
+        int id = com.minenorth.vehicles.menu.MenuNet.openScreen(buyer, m -> {
+            if (m.action == com.minenorth.vehicles.menu.ScreenActionPacket.SALE_ACCEPT) accept(buyer);
+            else if (m.action == com.minenorth.vehicles.menu.ScreenActionPacket.SALE_REFUSE) refuse(buyer);
+        });
+        com.minenorth.vehicles.menu.MenuNet.send(buyer, new com.minenorth.vehicles.menu.OpenSalePacket(id, -1, 0, List.of(), List.of(),
+                new com.minenorth.vehicles.menu.OpenSalePacket.Offer(o.sellerName(), o.vehicle().label, o.vehicle().itemId == null ? "" : o.vehicle().itemId,
+                        o.plate() == null ? "" : o.plate(), o.price(), EconomyBridge.balance(buyer))));
+    }
+
     public static void openSell(ServerPlayer p) {
         List<GarageData.Stored> list = GarageData.get(p.getServer()).of(p.getUUID());
         if (list.isEmpty()) {
@@ -131,16 +209,21 @@ public final class VehicleSale {
 
     // ------------------------------------------------------------------ offre
 
+    /** /vente <joueur> <prix> : véhicule choisi auparavant dans le menu coffre. */
     private static void propose(ServerPlayer seller, ServerPlayer buyer, int price) {
-        MinecraftServer server = seller.getServer();
         Selection sel = SELECTED.get(seller.getUUID());
-        GarageData data = GarageData.get(server);
         if (sel == null || System.currentTimeMillis() > sel.expireMs()) {
             Msg.send(seller, "&cChoisis d'abord un véhicule : menu du garage > « Vendre un véhicule ».");
             return;
         }
+        propose(seller, buyer, sel.vehicle(), price);
+    }
+
+    private static void propose(ServerPlayer seller, ServerPlayer buyer, GarageData.Stored v, int price) {
+        MinecraftServer server = seller.getServer();
+        GarageData data = GarageData.get(server);
         List<GarageData.Stored> mine = data.of(seller.getUUID());
-        if (!mine.contains(sel.vehicle())) {
+        if (!mine.contains(v)) {
             Msg.send(seller, "&cCe véhicule n'est plus dans ton garage.");
             return;
         }
@@ -162,7 +245,6 @@ public final class VehicleSale {
             Msg.send(seller, "&cLe vendeur et l'acheteur doivent avoir un compte bancaire.");
             return;
         }
-        GarageData.Stored v = sel.vehicle();
         PlateRegistry.Entry foreign = foreignPlate(server, seller.getUUID(), v.nbt);
         if (foreign != null) {
             Msg.send(seller, "&cCe véhicule porte la plaque &f" + foreign.plate + "&c, immatriculée au nom de &f" + foreign.displayName()
@@ -172,10 +254,10 @@ public final class VehicleSale {
         String plate = findPlate(server, seller.getUUID(), v.nbt);
         // Une seule offre sortante par vendeur
         OFFERS.values().removeIf(o -> o.seller().equals(seller.getUUID()));
-        Offer offer = new Offer(seller.getUUID(), MineNorth.displayName(seller), buyer.getUUID(), v, price, plate,
+        Offer offer = new Offer(seller.getUUID(), rpName(seller), buyer.getUUID(), v, price, plate,
                 System.currentTimeMillis() + VehicleConfig.SALE_EXPIRE.get() * 1000L);
         OFFERS.put(buyer.getUUID(), offer);
-        Msg.send(seller, "&aOffre envoyée à &f" + MineNorth.displayName(buyer) + "&a : " + v.label + " pour " + price + "€"
+        Msg.send(seller, "&aOffre envoyée à &f" + rpName(buyer) + "&a : " + v.label + " pour " + price + "€"
                 + (plate == null ? "" : " (plaque " + plate + " incluse)") + ". Elle expire dans " + VehicleConfig.SALE_EXPIRE.get() + " s.");
 
         buyer.sendSystemMessage(Gui.comp(VehicleConfig.PREFIX.get() + " &e" + offer.sellerName() + " &7te propose son véhicule &e" + v.label
@@ -184,6 +266,7 @@ public final class VehicleSale {
                 .append(button("[Accepter]", "§a", "/vente accepter"))
                 .append(Component.literal("  "))
                 .append(button("[Refuser]", "§c", "/vente refuser")));
+        showOffer(buyer, offer);
     }
 
     private static Component button(String label, String color, String command) {

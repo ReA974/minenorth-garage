@@ -119,6 +119,37 @@ public final class Insurance {
         Msg.send(p, "&a" + s.label + " est assuré pour " + price + "€. S'il est détruit, il reviendra dans ton garage.");
     }
 
+    // ------------------------------------------------------------------ assurance directe (écran garage)
+
+    /**
+     * Assure directement un véhicule rangé dans le garage (choisi dans la liste de l'écran) : carte si possible,
+     * sinon espèces. Mêmes prix et contrôles que le menu d'assurance.
+     */
+    public static void insureStored(ServerPlayer p, GarageData.Stored s) {
+        if (MtsBridge.isInsured(s.nbt)) {
+            Msg.send(p, "&eCe véhicule est déjà assuré.");
+            return;
+        }
+        int price = (int) fr.minenorth.api.MineNorth.discounted(p.getServer(), p.getUUID(), price(s.itemId));
+        List<VehicleConfig.Denom> den = VehicleConfig.currency();
+        Payment.Method method = Payment.precheck(p, price, Payment.Method.CARD, den, "pour assurer ce véhicule") == null
+                ? Payment.Method.CARD : Payment.Method.CASH;
+        String err = Payment.precheck(p, price, method, den, "pour assurer ce véhicule");
+        if (err != null) {
+            Msg.send(p, "&c" + err);
+            return;
+        }
+        Payment.Result paid = Payment.pay(p, price, method, den, "garage:assurance");
+        if (!paid.ok()) {
+            Msg.send(p, "&c" + paid.message());
+            return;
+        }
+        MtsBridge.setInsured(s.nbt, true);
+        GarageData.get(p.getServer()).setDirty();
+        Msg.send(p, "&a" + s.label + " est assuré pour " + price + "€ (" + (method == Payment.Method.CARD ? "carte" : "espèces")
+                + "). S'il est détruit, il reviendra dans ton garage.");
+    }
+
     // ------------------------------------------------------------------ indemnisation
 
     @SubscribeEvent

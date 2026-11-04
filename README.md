@@ -121,3 +121,26 @@ Blocs `borne_garage` (panneau P bleu) et `borne_fourriere` (panneau orange, dép
 Façon serveurs GTA RP : on s'approche, on regarde la borne (« [Clic droit] Ouvrir le garage » s'affiche) et clic droit = le même menu que les PNJ
 (`Garage.openMenu`, `Impound.openRecoverMenu`). Écran et panneau lumineux. Incassables en survie : le staff les pose / retire en créatif,
 dans la zone de garage (les véhicules sortent comme avec le PNJ).
+
+## Filet de pêche des bateaux (04/11)
+Objet `filet_peche` (onglet créatif Garage, vendu 350 € au comptoir « Poissonnerie - Matériel de pêche » du pack `poissonnerie`).
+- **Clic droit à bord d'un bateau sur l'eau** : le filet est mis à l'eau. Un seul filet par bateau et par joueur ; bateau = véhicule de type « mer »
+  (catégorie Bateau du catalogue, ou nom de bateau), option `bateauxSeulement`.
+- Tant que le pêcheur reste à bord et que le bateau **avance sur l'eau** entre `vitesseMinKmh` (3) et `vitesseMaxKmh` (40) km/h, un poisson est pris
+  toutes les `secondesParPoisson` (45) secondes de navigation, jusqu'à `capacite` (16). La vitesse est mesurée par le serveur (distance parcourue
+  chaque seconde), pas envoyée par le client.
+- **Poissons Star Catcher** : la table est lue dans les fiches du mod (`data/*/starcatcher/fish/*.json`, datapacks compris, relue au `/reload`) :
+  mêmes objets, même chance de base (`base_chance`) et mêmes conditions que la canne (dimension, eau, biome et tags de biome, altitude, heure,
+  météo). Raretés `raretes` (commun à légendaire par défaut, pas les déchets) ; poissons à appât, structure, limite de prises ou lumière exclus.
+  Seuls les objets `starcatcher:*` (`espacesDeNoms`) : tous rachetés par la poissonnerie. Rien ne mord ici = message, pas de prise.
+- **Nouveau clic droit** : remontée pendant `dureeRemontee` (8) secondes, pêcheur à bord jusqu'au bout (sinon interrompue, le filet reste à l'eau),
+  puis les poissons vont dans l'inventaire (au sol s'il est plein). Le propriétaire du bateau et les OP peuvent aussi remonter le filet.
+- État dans les données du bateau (`mnrp_filet`) : il suit le bateau au garage et reprend après un redémarrage. Bateau détruit / revendu hors
+  garage : les poissons tombent au sol. L'assurance rend un bateau sans filet (pas de duplication).
+- Config serveur `config/minenorth-filet.toml`.
+
+## Motos et bateaux HavenRP (04/11)
+30 véhicules du jar `minenorth-motos-bateaux` (dossier `../minenorth-motos-bateaux`, packs MTS `minenorthmoto` / `minenorthmarine`) ajoutés au
+catalogue : motos et scooters (Moto), BMW R 1250 RT Gendarmerie / Police nationale (Police), barque, semi-rigide, open, cruiser, yacht (Bateau),
+vedette de police (Bateaux police). Aucun code spécifique : plaques, coffre, garage et fourrière fonctionnent comme pour les autres packs.
+La **Kawasaki Ninja H2R** est sous licence CC-BY-NC-SA : jamais vendue contre de l'argent réel (VIP, boutique), argent du jeu seulement.

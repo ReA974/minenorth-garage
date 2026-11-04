@@ -12,5 +12,8 @@
   "key.minenorth_rp_vehicles.coffre": "Coffre du véhicule",
   "key.categories.minenorth": "MineNorth",
   "block.minenorth_rp_vehicles.borne_garage": "Borne de garage",
-  "block.minenorth_rp_vehicles.borne_fourriere": "Borne de fourrière"
+  "block.minenorth_rp_vehicles.borne_fourriere": "Borne de fourrière",
+  "item.minenorth_rp_vehicles.filet_peche": "Filet de pêche",
+  "item.minenorth_rp_vehicles.filet_peche.tooltip": "À bord d'un bateau sur l'eau : clic droit pour mettre le filet à l'eau, puis avance doucement.",
+  "item.minenorth_rp_vehicles.filet_peche.tooltip2": "Clic droit à nouveau pour le remonter : les poissons se revendent à la poissonnerie."
 }

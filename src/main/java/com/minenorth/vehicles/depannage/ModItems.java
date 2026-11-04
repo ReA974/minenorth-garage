@@ -21,6 +21,7 @@ public final class ModItems {
     public static final RegistryObject<Item> UNSTUCK_KIT = ITEMS.register("kit_depannage", UnstuckItem::new);
     public static final RegistryObject<Item> ZONE_WAND = ITEMS.register("baton_zone", ZoneWandItem::new);
     public static final RegistryObject<Item> GARAGE_TABLET = ITEMS.register("tablette_garage", () -> new MenuItem(MenuItem.Kind.GARAGE));
+    public static final RegistryObject<Item> FISHING_NET = ITEMS.register("filet_peche", com.minenorth.vehicles.peche.FishingNetItem::new);
     public static final RegistryObject<Item> SHOP_TABLET = ITEMS.register("tablette_concessionnaire", () -> new MenuItem(MenuItem.Kind.SHOP));
 
     public static final net.minecraft.world.item.CreativeModeTab.DisplayItemsGenerator TAB_ITEMS = (params, out) -> {
@@ -28,6 +29,7 @@ public final class ModItems {
                 out.accept(SHOP_TABLET.get());
                 out.accept(ZONE_WAND.get());
                 out.accept(UNSTUCK_KIT.get());
+                out.accept(FISHING_NET.get());
                 out.accept(com.minenorth.vehicles.stand.StandBlocks.GARAGE_ITEM.get());
                 out.accept(com.minenorth.vehicles.stand.StandBlocks.FOURRIERE_ITEM.get());
             };

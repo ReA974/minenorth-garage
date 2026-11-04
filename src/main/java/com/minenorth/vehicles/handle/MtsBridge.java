@@ -89,6 +89,7 @@ public final class MtsBridge {
         CompoundTag copy = state.copy();
         CompoundTag fd = copy.getCompound("ForgeData");
         if (fd.contains(com.minenorth.vehicles.coffre.Trunk.TAG, 10)) fd.getCompound(com.minenorth.vehicles.coffre.Trunk.TAG).remove("Items");
+        com.minenorth.vehicles.peche.FishingNet.stripFromOrigin(copy);   // ni le filet ni ses poissons
         e.getPersistentData().put(ORIGIN, copy);
     }
 

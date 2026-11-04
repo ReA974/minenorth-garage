@@ -1,0 +1,20 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "minenorth_rp_vehicles:block/borne_fourriere",
+   "y": 0
+  },
+  "facing=east": {
+   "model": "minenorth_rp_vehicles:block/borne_fourriere",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "minenorth_rp_vehicles:block/borne_fourriere",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "minenorth_rp_vehicles:block/borne_fourriere",
+   "y": 270
+  }
+ }
+}

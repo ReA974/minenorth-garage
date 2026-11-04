@@ -10,5 +10,7 @@
   "item.minenorth_rp_vehicles.tablette_concessionnaire": "Tablette concessionnaire",
   "item.minenorth_rp_vehicles.tablette_concessionnaire.tooltip": "Clic droit : ouvre la boutique de véhicules (/vendeurvehicule). Admin.",
   "key.minenorth_rp_vehicles.coffre": "Coffre du véhicule",
-  "key.categories.minenorth": "MineNorth"
+  "key.categories.minenorth": "MineNorth",
+  "block.minenorth_rp_vehicles.borne_garage": "Borne de garage",
+  "block.minenorth_rp_vehicles.borne_fourriere": "Borne de fourrière"
 }

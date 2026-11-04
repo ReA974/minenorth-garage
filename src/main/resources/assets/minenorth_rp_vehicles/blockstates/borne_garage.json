@@ -1,0 +1,20 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "minenorth_rp_vehicles:block/borne_garage",
+   "y": 0
+  },
+  "facing=east": {
+   "model": "minenorth_rp_vehicles:block/borne_garage",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "minenorth_rp_vehicles:block/borne_garage",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "minenorth_rp_vehicles:block/borne_garage",
+   "y": 270
+  }
+ }
+}

@@ -28,6 +28,8 @@ public final class ModItems {
                 out.accept(SHOP_TABLET.get());
                 out.accept(ZONE_WAND.get());
                 out.accept(UNSTUCK_KIT.get());
+                out.accept(com.minenorth.vehicles.stand.StandBlocks.GARAGE_ITEM.get());
+                out.accept(com.minenorth.vehicles.stand.StandBlocks.FOURRIERE_ITEM.get());
             };
 
     public static void register(IEventBus modBus) {

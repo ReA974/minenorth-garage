@@ -115,3 +115,9 @@ Chaque véhicule a un coffre serveur (sans commande, interface seulement). Il s'
 - **Verrouillage** : MTS 24 range le verrou dans la variable `lockedVar` du véhicule ; avant ce correctif, le garage lisait un champ `locked` disparu et voyait tous les véhicules déverrouillés.
 - **Persistance** : contenu et palier sont dans les données de l'entité (`mnrp_coffre`) : ils suivent le véhicule au garage, à la fourrière et à la vente. Un seul conteneur partagé par véhicule, pas de duplication.
 - **Disparition hors garage** (destruction, revente au receleur du mod vol, ramassage) : le contenu est lâché au sol avant la suppression. L'assurance rend le véhicule avec le palier mais un coffre vide.
+
+## Bornes de garage et de fourrière (04/11)
+Blocs `borne_garage` (panneau P bleu) et `borne_fourriere` (panneau orange, dépanneuse), onglet créatif Garage, aperçu `apercu-bornes.png`.
+Façon serveurs GTA RP : on s'approche, on regarde la borne (« [Clic droit] Ouvrir le garage » s'affiche) et clic droit = le même menu que les PNJ
+(`Garage.openMenu`, `Impound.openRecoverMenu`). Écran et panneau lumineux. Incassables en survie : le staff les pose / retire en créatif,
+dans la zone de garage (les véhicules sortent comme avec le PNJ).

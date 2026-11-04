@@ -108,9 +108,11 @@ public final class ShopMultiCommands {
         ShopZoneData.Zone z = new ShopZoneData.Zone();
         z.dim = p.level().dimension().location().toString();
         z.pos = p.blockPosition().below();
+        z.yaw = com.minenorth.vehicles.handle.MtsBridge.snap90(p.getYRot());
         d.zones.put(id, z);
         d.setDirty();
-        Msg.send(p, "&aZone de pose du vendeur \"" + id + "\" définie à ta position.");
+        Msg.send(p, "&aZone de pose du vendeur \"" + id + "\" définie à ta position ; les véhicules sortiront tournés "
+                + com.minenorth.vehicles.miscs.VehicleCommands.cap(z.yaw) + " (le sens où tu regardes).");
         return 1;
     }
 

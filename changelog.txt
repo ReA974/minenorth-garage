@@ -1088,3 +1088,5 @@
 [13/10] Appeler le mecano (fourriere) : message + point sur la carte UNIQUEMENT pour les membres de l entreprise de depannage (minenorth-fourriere.toml : mechanicCompany, defaut "Tune My Thing"), seulement si elle est ouverte. Point retire a l arrivee d un mecano / vehicule disparu / mechanicMarkerMinutes. Vide = ancien comportement.
 
 [04/11] Filet de peche des bateaux (filet_peche) : poissons Star Catcher selon leurs fiches (biome, heure, meteo), capacite et duree de remontee reglables (minenorth-filet.toml), tout verifie cote serveur. Catalogue : motos et bateaux HavenRP (jar minenorth-motos-bateaux).
+
+[04/11] Orientation a la sortie (concession, garage, fourriere, retrait en main) : dans l axe de la zone, sens pose par l admin (/vendeurzone set, /garagezone orienter, /fourrierezone set). Corrige le lacet passe a MTS en miroir. build.gradle : minenorth-api (tiret).

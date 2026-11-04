@@ -181,7 +181,7 @@ public final class Impound {
             Msg.send(p, "&cDimension de la zone fourrière introuvable. Contacte le staff.");
             return;
         }
-        Entity e = Spawner.spawn(level, s.nbt, d.zx, d.zy, d.zz, p.getUUID());
+        Entity e = Spawner.spawn(level, s.nbt, d.zx, d.zy, d.zz, p.getUUID(), d.zyaw);
         if (e == null) {
             Msg.send(p, "&cImpossible de recréer ce véhicule (entité MTS introuvable ?). Il reste en fourrière, tu n'as pas été débité.");
             return;

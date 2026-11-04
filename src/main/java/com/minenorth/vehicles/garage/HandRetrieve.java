@@ -195,7 +195,8 @@ public final class HandRetrieve {
             boolean inside = z.dim.equals(dim) && Math.sqrt(dx * dx + dz * dz) <= z.radius;
             MtsBridge.discard(ent);
             if (inside) {
-                Entity placed = Spawner.spawn(level, pe.vehicle.nbt, pos.x, pos.y, pos.z, en.getKey());
+                float poseYaw = MtsBridge.snap90(MtsBridge.mcYawOf(MtsBridge.snapshot(ent)));   // sens choisi en posant l'objet
+                Entity placed = Spawner.spawn(level, pe.vehicle.nbt, pos.x, pos.y, pos.z, en.getKey(), poseYaw);
                 if (placed == null) {
                     giveBack(server, en.getKey(), "&cImpossible de recréer ce véhicule : il est retourné dans ton garage.", false);
                     return;

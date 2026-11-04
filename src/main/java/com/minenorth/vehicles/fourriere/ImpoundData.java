@@ -18,6 +18,8 @@ public class ImpoundData extends SavedData {
     public boolean hasZone;
     public String zoneDim = "";
     public double zx, zy, zz;
+    /** Lacet Minecraft (quart de tour) des véhicules à la sortie, NaN = inconnu (anciennes données). */
+    public float zyaw = Float.NaN;
     public final Map<UUID, List<GarageData.Stored>> vehicles = new HashMap<>();
 
     public static ImpoundData get(MinecraftServer server) {
@@ -35,6 +37,7 @@ public class ImpoundData extends SavedData {
         tag.putDouble("zx", zx);
         tag.putDouble("zy", zy);
         tag.putDouble("zz", zz);
+        if (!Float.isNaN(zyaw)) tag.putFloat("zyaw", zyaw);
         ListTag gl = new ListTag();
         for (Map.Entry<UUID, List<GarageData.Stored>> en : vehicles.entrySet()) {
             if (en.getValue().isEmpty()) continue;
@@ -63,6 +66,7 @@ public class ImpoundData extends SavedData {
         d.zx = tag.getDouble("zx");
         d.zy = tag.getDouble("zy");
         d.zz = tag.getDouble("zz");
+        d.zyaw = tag.contains("zyaw") ? tag.getFloat("zyaw") : Float.NaN;
         ListTag gl = tag.getList("owners", Tag.TAG_COMPOUND);
         for (int i = 0; i < gl.size(); i++) {
             CompoundTag g = gl.getCompound(i);

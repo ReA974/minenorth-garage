@@ -32,7 +32,19 @@ public final class Spawner {
     private Spawner() {}
 
     public static Entity spawn(ServerLevel level, CompoundTag nbt, double x, double y, double z, UUID owner) {
-        Entity e = MtsBridge.restore(level, nbt, x, y, z);
+        return spawn(level, nbt, x, y, z, owner, Float.NaN);
+    }
+
+    /**
+     * Comme {@link #spawn(ServerLevel, CompoundTag, double, double, double, UUID)}, le véhicule tourné vers {@code mcYaw}
+     * (lacet Minecraft de la zone de sortie). NaN : orientation du rangement, arrondie au quart de tour pour rester dans l'axe.
+     */
+    public static Entity spawn(ServerLevel level, CompoundTag nbt, double x, double y, double z, UUID owner, float mcYaw) {
+        if (Float.isNaN(mcYaw)) {
+            float stored = MtsBridge.mcYawOf(nbt);
+            mcYaw = Float.isNaN(stored) ? Float.NaN : MtsBridge.snap90(stored);
+        }
+        Entity e = MtsBridge.restore(level, nbt, x, y, z, mcYaw);
         if (e == null) return null;
         MtsBridge.setOwner(e, owner);
         if (MtsBridge.isInsured(nbt)) MtsBridge.setOrigin(e, nbt);

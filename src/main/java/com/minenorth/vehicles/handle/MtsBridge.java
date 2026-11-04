@@ -397,9 +397,44 @@ public final class MtsBridge {
         return field(slotDef, "defaultPart") instanceof String dp && dp.toLowerCase(Locale.ROOT).contains("plate");
     }
 
+    /**
+     * Angle de lacet MTS (angles.y) d'un véhicule tourné vers la direction {@code mcYaw} (lacet Minecraft, degrés) :
+     * MTS compte le lacet dans l'autre sens que Minecraft (WrapperEntity.getYaw = -yRot).
+     */
+    public static double mtsYaw(float mcYaw) {
+        return -mcYaw;
+    }
+
+    /** Lacet Minecraft arrondi au quart de tour le plus proche (véhicule dans l'axe de la place, jamais de travers). */
+    public static float snap90(float mcYaw) {
+        return Float.isNaN(mcYaw) ? Float.NaN : Math.round(mcYaw / 90f) * 90f;
+    }
+
+    /** Lacet Minecraft (degrés) d'un véhicule d'après son NBT MTS, NaN s'il n'y figure pas. */
+    public static float mcYawOf(CompoundTag saved) {
+        return saved.contains("anglesy") ? (float) -saved.getDouble("anglesy") : Float.NaN;
+    }
+
     /** Recrée l'entité (non ajoutée au monde) depuis un NBT sauvegardé, à la position donnée. */
     public static Entity restore(ServerLevel level, CompoundTag saved, double x, double y, double z) {
+        return restore(level, saved, x, y, z, Float.NaN);
+    }
+
+    /**
+     * Recrée l'entité à la position donnée, tournée vers {@code mcYaw} (lacet Minecraft), à plat (sans tangage ni roulis).
+     * NaN : l'orientation sauvegardée est gardée telle quelle.
+     */
+    public static Entity restore(ServerLevel level, CompoundTag saved, double x, double y, double z, float mcYaw) {
         CompoundTag tag = saved.copy();
+        if (!Float.isNaN(mcYaw)) {
+            tag.putDouble("anglesx", 0);
+            tag.putDouble("anglesy", mtsYaw(mcYaw));
+            tag.putDouble("anglesz", 0);
+            net.minecraft.nbt.ListTag rot = new net.minecraft.nbt.ListTag();
+            rot.add(net.minecraft.nbt.FloatTag.valueOf(mcYaw));
+            rot.add(net.minecraft.nbt.FloatTag.valueOf(0));
+            tag.put("Rotation", rot);
+        }
         tag.putString("id", VehicleConfig.VEHICLE_ENTITY.get());
 
         ListTag pos = new ListTag();

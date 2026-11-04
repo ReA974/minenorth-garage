@@ -46,6 +46,7 @@ La police est déterminée par le mod Police via l'API MineNorth. Les sous-comma
 | `/garagezone select <nom> [tag]` | Crée la zone depuis la sélection à la baguette. |
 | `/garagezone <nom> [rayon] [tag]` | Crée une zone circulaire à ta position (rayon par défaut dans la config). |
 | `/garagezone settype <nom> <types>` | Définit les types de véhicules acceptés dans la zone. |
+| `/garagezone orienter <nom>` | Les véhicules de ce garage sortiront tournés dans le sens où tu regardes (arrondi au quart de tour). |
 | `/garagezone remove <nom>` | Supprime la zone. |
 | `/garageadmin add <joueur>` | Ajoute un véhicule au garage d'un joueur. |
 | `/garageadmin rangertout` | Range tous les véhicules posés (zones chargées) dans le garage de leur propriétaire, même hors ligne, intacts. Compte rendu par joueur ; les véhicules sans propriétaire et ceux dont le garage est plein restent en place. |
@@ -144,3 +145,15 @@ Objet `filet_peche` (onglet créatif Garage, vendu 350 € au comptoir « Poisso
 catalogue : motos et scooters (Moto), BMW R 1250 RT Gendarmerie / Police nationale (Police), barque, semi-rigide, open, cruiser, yacht (Bateau),
 vedette de police (Bateaux police). Aucun code spécifique : plaques, coffre, garage et fourrière fonctionnent comme pour les autres packs.
 La **Kawasaki Ninja H2R** est sous licence CC-BY-NC-SA : jamais vendue contre de l'argent réel (VIP, boutique), argent du jeu seulement.
+
+## Orientation des véhicules à la sortie (04/11)
+Les véhicules sortent **dans l'axe de la place**, jamais de travers :
+- **Concession** : sens où regardait l'admin au `/vendeurzone set <concession>` (arrondi au quart de tour). Avant, le lacet du joueur
+  était passé tel quel à MTS, qui le compte dans l'autre sens que Minecraft : le véhicule sortait en miroir, souvent de travers.
+- **Garage** : sens enregistré à la création de la zone (`/garagezone <nom>`, `/garagezone select`) ou par `/garagezone orienter <nom>`.
+- **Fourrière** : sens où regardait l'admin au `/fourrierezone set`.
+- **Retrait « en main »** : le sens dans lequel le joueur a posé le véhicule.
+- Zones créées avant ce correctif (pas de sens enregistré) : concession = sens de l'acheteur arrondi au quart de tour ; garage et
+  fourrière = sens du véhicule au rangement, arrondi au quart de tour. Pour fixer le sens : refaire `/vendeurzone set`,
+  `/fourrierezone set`, ou `/garagezone orienter <nom>`, en regardant vers la sortie de la place.
+- Le véhicule est aussi remis à plat (sans tangage ni roulis gardés du rangement).

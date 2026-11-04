@@ -40,8 +40,10 @@ public final class ImpoundCommands {
                     d.zx = p.getX();
                     d.zy = p.getY();
                     d.zz = p.getZ();
+                    d.zyaw = com.minenorth.vehicles.handle.MtsBridge.snap90(p.getYRot());
                     d.setDirty();
-                    Msg.send(p, "&aPoint de sortie de la fourrière défini à ta position actuelle.");
+                    Msg.send(p, "&aPoint de sortie de la fourrière défini à ta position actuelle ; les véhicules sortiront tournés "
+                            + com.minenorth.vehicles.miscs.VehicleCommands.cap(d.zyaw) + " (le sens où tu regardes).");
                     return 1;
                 })));
 

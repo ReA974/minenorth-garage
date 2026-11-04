@@ -22,6 +22,8 @@ public class GarageData extends SavedData {
         /** Types acceptés, séparés par des virgules ("terre,air,mer") ; "" = tous. */
         public String types = "";
         public double x, y, z, radius;
+        /** Lacet Minecraft (degrés, quart de tour) des véhicules qui sortent : celui de l'admin à la création de la zone. NaN = inconnu. */
+        public float yaw = Float.NaN;
         /** Garage de service : "police" ou "pompier" = réservé aux agents EN SERVICE, avec sa propre liste de véhicules
          *  (séparée du garage civil et des autres services). "" = garage normal. */
         public String service = "";
@@ -88,6 +90,7 @@ public class GarageData extends SavedData {
             t.putDouble("y", z.y);
             t.putDouble("z", z.z);
             t.putDouble("radius", z.radius);
+            if (!Float.isNaN(z.yaw)) t.putFloat("yaw", z.yaw);
             t.putString("service", z.service);
             zl.add(t);
         }
@@ -158,6 +161,7 @@ public class GarageData extends SavedData {
             z.y = t.getDouble("y");
             z.z = t.getDouble("z");
             z.radius = t.getDouble("radius");
+            z.yaw = t.contains("yaw") ? t.getFloat("yaw") : Float.NaN;
             z.service = t.getString("service");
             if (z.service.isEmpty() && t.getBoolean("police")) z.service = "police";   // anciennes données
             d.zones.put(z.name, z);

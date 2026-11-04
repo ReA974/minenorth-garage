@@ -90,6 +90,8 @@ public final class VehicleCommands {
                         .executes(c -> setZoneFromWand(c, ""))
                         .then(Commands.argument("tag", StringArgumentType.word())
                                 .executes(c -> setZoneFromWand(c, StringArgumentType.getString(c, "tag"))))))
+                .then(Commands.literal("orienter").then(Commands.argument("name", StringArgumentType.word())
+                        .executes(c -> orientZone(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "name")))))
                 .then(Commands.literal("remove").then(Commands.argument("name", StringArgumentType.word())
                         .executes(c -> removeZone(c.getSource(), StringArgumentType.getString(c, "name")))))
                 .then(Commands.literal("settype").then(Commands.argument("name", StringArgumentType.word())
@@ -163,6 +165,26 @@ public final class VehicleCommands {
         return setZone(p, StringArgumentType.getString(c, "name"), p.getX(), p.getY(), p.getZ(), radius, tag);
     }
 
+    /** /garagezone orienter <nom> : les véhicules de ce garage sortiront tournés dans le sens où regarde l'admin (quart de tour). */
+    private static int orientZone(ServerPlayer p, String name) {
+        GarageData g = GarageData.get(p.getServer());
+        GarageData.Zone z = g.zones.get(name);
+        if (z == null) {
+            Msg.send(p, "&cGarage inconnu : " + name);
+            return 0;
+        }
+        z.yaw = com.minenorth.vehicles.handle.MtsBridge.snap90(p.getYRot());
+        g.setDirty();
+        Msg.send(p, "&aLes véhicules du garage \"" + name + "\" sortiront tournés " + cap(z.yaw) + ".");
+        return 1;
+    }
+
+    /** Point cardinal d'un lacet Minecraft arrondi (0 = sud). */
+    public static String cap(float yaw) {
+        int q = Math.floorMod(Math.round(yaw / 90f), 4);
+        return new String[]{"vers le sud", "vers l'ouest", "vers le nord", "vers l'est"}[q];
+    }
+
     private static int setZone(ServerPlayer p, String name, double x, double y, double zz, double radius, String tag) {
         GarageData g = GarageData.get(p.getServer());
         GarageData.Zone z = new GarageData.Zone();
@@ -172,6 +194,7 @@ public final class VehicleCommands {
         z.y = y;
         z.z = zz;
         z.radius = radius;
+        z.yaw = com.minenorth.vehicles.handle.MtsBridge.snap90(p.getYRot());   // les véhicules sortiront dans le sens où tu regardes
         // Tags spéciaux « police » / « pompier » : garage de service (agents en service uniquement, liste de véhicules séparée).
         z.service = com.minenorth.vehicles.garage.Garage.serviceOfKeyword(tag);
         z.tag = z.service.isEmpty() ? tag : "";

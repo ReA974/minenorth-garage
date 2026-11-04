@@ -341,7 +341,7 @@ public final class Garage {
         double spawnX = zone.x;
         double spawnZ = zone.z;
 
-        Entity e = Spawner.spawn(level, s.nbt, zone.x, zone.y, zone.z, p.getUUID());
+        Entity e = Spawner.spawn(level, s.nbt, zone.x, zone.y, zone.z, p.getUUID(), zone.yaw);
         if (e == null) {
             Msg.send(p, "&cImpossible de recréer ce véhicule (entité MTS introuvable ?). Il reste dans ton garage.");
             return;

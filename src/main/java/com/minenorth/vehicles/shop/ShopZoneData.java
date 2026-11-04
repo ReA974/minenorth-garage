@@ -15,6 +15,8 @@ public class ShopZoneData extends SavedData {
     public static final class Zone {
         public String dim;
         public BlockPos pos;
+        /** Lacet Minecraft (quart de tour) des véhicules vendus : sens où regardait l'admin au /vendeurzone set. NaN = inconnu. */
+        public float yaw = Float.NaN;
     }
 
     public final Map<String, Zone> zones = new LinkedHashMap<>();
@@ -31,6 +33,7 @@ public class ShopZoneData extends SavedData {
             t.putString("id", en.getKey());
             t.putString("dim", en.getValue().dim);
             t.putLong("pos", en.getValue().pos.asLong());
+            if (!Float.isNaN(en.getValue().yaw)) t.putFloat("yaw", en.getValue().yaw);
             l.add(t);
         }
         tag.put("zones", l);
@@ -45,6 +48,7 @@ public class ShopZoneData extends SavedData {
             Zone z = new Zone();
             z.dim = t.getString("dim");
             z.pos = BlockPos.of(t.getLong("pos"));
+            z.yaw = t.contains("yaw") ? t.getFloat("yaw") : Float.NaN;
             d.zones.put(t.getString("id"), z);
         }
         return d;

@@ -395,7 +395,10 @@ public final class ShopMulti {
         if (level == null) return null;
         Vec3 c = Vec3.atCenterOf(z.pos);
         double y = z.pos.getY() + 1;
-        if (!MtsBridge.spawnNew(level, itemId, c.x, y, c.z, p.getYRot(), p)) return null;
+        // Sens de la zone (admin au /vendeurzone set) ; ancienne zone : sens de l'acheteur, arrondi au quart de tour.
+        // MTS compte le lacet à l'envers de Minecraft : l'ancien appel (lacet brut) sortait le véhicule en miroir, de travers.
+        float yaw = Float.isNaN(z.yaw) ? MtsBridge.snap90(p.getYRot()) : z.yaw;
+        if (!MtsBridge.spawnNew(level, itemId, c.x, y, c.z, (float) MtsBridge.mtsYaw(yaw), p)) return null;
         // l'entité vient d'être ajoutée au monde : c'est le véhicule sans propriétaire de ce modèle le plus proche du point
         Entity best = null, anyNew = null;
         double bd = Double.MAX_VALUE, ad = Double.MAX_VALUE;

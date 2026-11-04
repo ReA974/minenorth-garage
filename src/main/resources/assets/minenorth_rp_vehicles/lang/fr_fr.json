@@ -14,6 +14,9 @@
   "block.minenorth_rp_vehicles.borne_garage": "Borne de garage",
   "block.minenorth_rp_vehicles.borne_fourriere": "Borne de fourrière",
   "item.minenorth_rp_vehicles.filet_peche": "Filet de pêche",
-  "item.minenorth_rp_vehicles.filet_peche.tooltip": "À bord d'un bateau sur l'eau : clic droit pour mettre le filet à l'eau, puis avance doucement.",
-  "item.minenorth_rp_vehicles.filet_peche.tooltip2": "Clic droit à nouveau pour le remonter : les poissons se revendent à la poissonnerie."
+  "item.minenorth_rp_vehicles.filet_peche.tooltip": "À bord d'un bateau sur l'eau : clic droit pour mettre le filet à l'eau, puis avance doucement. Plus de prises en haute mer, sous la pluie, à l'aube et au crépuscule.",
+  "item.minenorth_rp_vehicles.filet_peche.tooltip2": "Clic droit à nouveau pour le remonter au treuil : les poissons se revendent à la poissonnerie. Le filet s'use à chaque remontée.",
+  "item.minenorth_rp_vehicles.filet_peche.dechire": "Filet déchiré : répare-le avec une bobine de fil de pêche ou à l'enclume.",
+  "item.minenorth_rp_vehicles.bobine_fil_peche": "Bobine de fil de pêche",
+  "item.minenorth_rp_vehicles.bobine_fil_peche.tooltip": "Clic droit avec le filet de pêche dans l'autre main : le filet est ravaudé. Aussi à l'enclume."
 }

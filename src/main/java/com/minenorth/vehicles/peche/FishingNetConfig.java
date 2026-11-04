@@ -9,8 +9,8 @@ public final class FishingNetConfig {
     public static final ForgeConfigSpec SPEC;
 
     public static final ForgeConfigSpec.BooleanValue ENABLED, BOATS_ONLY;
-    public static final ForgeConfigSpec.IntValue CAPACITY, INTERVAL, HAUL_SECONDS;
-    public static final ForgeConfigSpec.DoubleValue MIN_SPEED, MAX_SPEED;
+    public static final ForgeConfigSpec.IntValue CAPACITY, INTERVAL, HAUL_SECONDS, WEAR_BASE, BOBINE_REPAIR;
+    public static final ForgeConfigSpec.DoubleValue MIN_SPEED, MAX_SPEED, TREASURE_CHANCE, BONUS_DEEP, RARE_BOOST_DEEP, BONUS_RAIN, BONUS_TWILIGHT;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> RARITIES, NAMESPACES;
 
     static {
@@ -35,6 +35,22 @@ public final class FishingNetConfig {
                 .defineList("raretes", List.of("common", "uncommon", "rare", "epic", "legendary"), o -> o instanceof String s && !s.isBlank());
         NAMESPACES = b.comment("Espaces de noms des objets acceptés (par défaut seuls les poissons de Star Catcher, rachetés par la poissonnerie).")
                 .defineList("espacesDeNoms", List.of("starcatcher"), o -> o instanceof String s && !s.isBlank());
+        b.pop();
+        b.push("bonus");
+        BONUS_DEEP = b.comment("Haute mer (biomes d'océan profond) : vitesse de pêche en plus (0,35 = +35 %). Au large (océan) : le tiers.")
+                .defineInRange("hauteMer", 0.35, 0.0, 5.0);
+        RARE_BOOST_DEEP = b.comment("Haute mer : les poissons rares, épiques et légendaires de Star Catcher pèsent autant de fois plus.")
+                .defineInRange("raresHauteMer", 1.5, 1.0, 10.0);
+        BONUS_RAIN = b.comment("Pluie : vitesse de pêche en plus (orage : x1,6).").defineInRange("pluie", 0.15, 0.0, 5.0);
+        BONUS_TWILIGHT = b.comment("Aube et crépuscule : vitesse de pêche en plus.").defineInRange("aubeCrepuscule", 0.20, 0.0, 5.0);
+        TREASURE_CHANCE = b.comment("Chance par remontée (filet plein) d'un coffre d'épave ou d'une bouteille à la mer ; doublée près des côtes.")
+                .defineInRange("chanceTresor", 0.05, 0.0, 1.0);
+        b.pop();
+        b.push("usure");
+        WEAR_BASE = b.comment("Usure par remontée (le filet a 64 points ; +1 par tranche de 4 poissons). Déchiré à 1 point : plus déployable.")
+                .defineInRange("usureParRemontee", 2, 0, 64);
+        BOBINE_REPAIR = b.comment("Points rendus au filet par une bobine de fil de pêche (clic droit, filet dans l'autre main).")
+                .defineInRange("reparationBobine", 16, 1, 64);
         b.pop();
         SPEC = b.build();
     }

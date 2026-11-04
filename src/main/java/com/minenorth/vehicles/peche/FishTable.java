@@ -59,22 +59,32 @@ public final class FishTable {
 
     /** Tire un poisson possible à cet endroit (pondéré par la chance de base Star Catcher), ou null si rien ne mord ici. */
     public static Item roll(ServerLevel level, BlockPos pos, RandomSource rnd) {
+        return roll(level, pos, rnd, 1.0);
+    }
+
+    /** Idem, les raretés rare / épique / légendaire de Star Catcher pesant {@code rareBoost} fois plus (bonus de haute mer). */
+    public static Item roll(ServerLevel level, BlockPos pos, RandomSource rnd, double rareBoost) {
         Holder<Biome> biome = level.getBiome(pos);
         List<Fish> ok = new ArrayList<>();
-        int total = 0;
+        double total = 0;
         for (Fish f : all(level.getServer())) {
             if (f.allowed(level, pos, biome)) {
                 ok.add(f);
-                total += f.weight;
+                total += weight(f, rareBoost);
             }
         }
         if (total <= 0) return null;
-        int r = rnd.nextInt(total);
+        double r = rnd.nextDouble() * total;
         for (Fish f : ok) {
-            r -= f.weight;
+            r -= weight(f, rareBoost);
             if (r < 0) return f.item;
         }
-        return null;
+        return ok.get(ok.size() - 1).item;
+    }
+
+    private static double weight(Fish f, double rareBoost) {
+        boolean rare = f.rarity().equals("rare") || f.rarity().equals("epic") || f.rarity().equals("legendary");
+        return f.weight() * (rare ? rareBoost : 1.0);
     }
 
     private static List<Fish> load(MinecraftServer server) {

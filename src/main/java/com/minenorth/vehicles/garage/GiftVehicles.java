@@ -45,52 +45,107 @@ public final class GiftVehicles {
 
     // ------------------------------------------------------------------ remise EN MAIN (comme un achat en concession)
 
-    /** Clé du tag de l'objet véhicule offert : numéro de carte du personnage. */
-    public static final String ITEM_TAG = "mnrp_cadeau";
-
     /**
-     * Met l'objet MTS du véhicule dans la main du joueur (sinon dans l'inventaire). Quand il le pose, le véhicule est mis à son nom
-     * (drapeau « cadeau », clé, plein). Inventaire plein : le véhicule apparaît à côté de lui ({@link #give}).
-     * Appelé par réflexion par le mod Bienvenue : ne pas changer le nom ni les paramètres.
+     * Met l'objet MTS du véhicule dans la main du joueur (sinon dans l'inventaire), comme un achat en concession : objet VIERGE.
+     * Important : MTS prend tout tag de l'objet pour l'état d'un véhicule déjà sauvegardé et ne monte alors pas les pièces par défaut
+     * (vélo posé sans roues, qui tombe). Le lien « cadeau » est donc gardé côté serveur (GiftData) jusqu'à la pose : le véhicule
+     * qui apparaît près du joueur, du même modèle, est mis à son nom (drapeau « cadeau », clé, plein).
+     * Inventaire plein : le véhicule apparaît à côté de lui ({@link #give}). Appelé par réflexion par le mod Bienvenue.
      */
     public static boolean giveItem(ServerPlayer p, String itemId, String label, String card) {
         net.minecraft.resources.ResourceLocation rl = net.minecraft.resources.ResourceLocation.tryParse(itemId);
         net.minecraft.world.item.Item it = rl == null ? null : net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(rl);
         if (it == null || it == net.minecraft.world.item.Items.AIR) return false;
-        net.minecraft.world.item.ItemStack st = new net.minecraft.world.item.ItemStack(it);
+        net.minecraft.world.item.ItemStack st = new net.minecraft.world.item.ItemStack(it);   // aucun tag : MTS montera roues et moteur
         String c = card == null || card.isEmpty() ? p.getUUID().toString() : card;
-        st.getOrCreateTag().putString(ITEM_TAG, c);
-        st.setHoverName(com.minenorth.vehicles.miscs.Gui.comp("&d&l" + label + " &7(cadeau de bienvenue)"));
         if (p.getMainHandItem().isEmpty()) {
             p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, st);
         } else if (!p.getInventory().add(st)) {
             com.minenorth.vehicles.miscs.Msg.send(p, "&eInventaire plein : ton véhicule est posé à côté de toi.");
             return give(p, itemId, label, card);
         }
+        GiftData.get(p.getServer()).add(p.getUUID(), itemId, c);
         p.containerMenu.broadcastChanges();
         com.minenorth.vehicles.miscs.Msg.send(p, "&aTon &e" + label + " &aest dans ton inventaire : clic droit au sol pour le poser. Il sera à ton nom.");
         return true;
     }
 
-    private record Placing(String card, long until) {}
+    /** Cadeaux remis en main mais pas encore posés : joueur -> {id d'objet, carte}. Sauvegardé (data/minenorth_cadeaux.dat). */
+    public static final class GiftData extends net.minecraft.world.level.saveddata.SavedData {
+        final java.util.Map<java.util.UUID, java.util.List<String[]>> pending = new java.util.HashMap<>();
 
-    /** Joueur qui vient de poser un véhicule offert -> carte et échéance (5 s). */
+        static GiftData get(net.minecraft.server.MinecraftServer s) {
+            return s.overworld().getDataStorage().computeIfAbsent(GiftData::load, GiftData::new, "minenorth_cadeaux");
+        }
+
+        void add(java.util.UUID p, String item, String card) {
+            pending.computeIfAbsent(p, k -> new java.util.ArrayList<>()).add(new String[]{item, card});
+            setDirty();
+        }
+
+        /** Cadeau en attente de ce modèle pour ce joueur (retiré de la liste), ou null. */
+        String[] take(java.util.UUID p, String item) {
+            java.util.List<String[]> l = pending.get(p);
+            if (l == null) return null;
+            for (java.util.Iterator<String[]> it = l.iterator(); it.hasNext(); ) {
+                String[] g = it.next();
+                if (g[0].equalsIgnoreCase(item)) {
+                    it.remove();
+                    if (l.isEmpty()) pending.remove(p);
+                    setDirty();
+                    return g;
+                }
+            }
+            return null;
+        }
+
+        boolean has(java.util.UUID p, String item) {
+            java.util.List<String[]> l = pending.get(p);
+            if (l != null) for (String[] g : l) if (g[0].equalsIgnoreCase(item)) return true;
+            return false;
+        }
+
+        @Override
+        public CompoundTag save(CompoundTag tag) {
+            net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+            pending.forEach((k, v) -> v.forEach(g -> {
+                CompoundTag t = new CompoundTag();
+                t.putUUID("p", k);
+                t.putString("item", g[0]);
+                t.putString("card", g[1]);
+                list.add(t);
+            }));
+            tag.put("pending", list);
+            return tag;
+        }
+
+        static GiftData load(CompoundTag tag) {
+            GiftData d = new GiftData();
+            for (net.minecraft.nbt.Tag t : tag.getList("pending", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                CompoundTag c = (CompoundTag) t;
+                if (c.hasUUID("p")) d.pending.computeIfAbsent(c.getUUID("p"), k -> new java.util.ArrayList<>()).add(new String[]{c.getString("item"), c.getString("card")});
+            }
+            return d;
+        }
+    }
+
+    /** Joueur qui pose à l'instant un véhicule offert -> {id d'objet, échéance (5 s)}. */
+    private record Placing(String item, long until) {}
+
     private static final java.util.Map<java.util.UUID, Placing> PLACING = new java.util.HashMap<>();
 
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void onUse(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock e) {
         if (!(e.getEntity() instanceof ServerPlayer p)) return;
         net.minecraft.world.item.ItemStack st = e.getItemStack();
-        if (!st.hasTag() || !st.getTag().contains(ITEM_TAG)) return;
-        String card = st.getTag().getString(ITEM_TAG);
-        String[] id = com.minenorth.vehicles.registry.IdentityBridge.identity(p.getServer(), p.getUUID());
-        String mine = id != null && id.length > 5 && id[5] != null && !id[5].isEmpty() ? id[5] : p.getUUID().toString();
-        if (!card.equals(mine)) {   // offert à un autre personnage : ni don ni revente
-            e.setCanceled(true);
-            com.minenorth.vehicles.miscs.Msg.send(p, "&cCe véhicule de bienvenue a été offert à quelqu'un d'autre : tu ne peux pas le poser.");
-            return;
+        net.minecraft.resources.ResourceLocation k = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(st.getItem());
+        if (k != null && st.hasTag() && st.getTag().contains("mnrp_cadeau") && k.getNamespace().equals("mts")) {
+            // objet remis par l'ancienne version (tag « cadeau » + nom) : MTS l'aurait posé sans roues. On retire le tag avant MTS.
+            GiftData.get(p.getServer()).add(p.getUUID(), k.toString(), st.getTag().getString("mnrp_cadeau"));
+            st.setTag(null);
         }
-        PLACING.put(p.getUUID(), new Placing(card, System.currentTimeMillis() + 5000));
+        if (k == null || !GiftData.get(p.getServer()).has(p.getUUID(), k.toString())) return;
+        PLACING.put(p.getUUID(), new Placing(k.toString(), System.currentTimeMillis() + 5000));
     }
 
     @net.minecraftforge.eventbus.api.SubscribeEvent
@@ -111,8 +166,10 @@ public final class GiftVehicles {
         }
         if (best == null) return;
         Placing pl = PLACING.remove(best.getUUID());
+        String[] g = GiftData.get(level.getServer()).take(best.getUUID(), pl.item());
+        if (g == null) return;
         // propriétaire, drapeau, clé et plein au tick suivant (l'entité vient juste d'arriver dans le monde)
-        CLAIMS.add(new Claim(level, v.position(), best.getUUID(), "", "Véhicule de bienvenue", pl.card(), 40));
+        CLAIMS.add(new Claim(level, v.position(), best.getUUID(), g[0], "Véhicule de bienvenue", g[1], 40));
     }
 
     /** Véhicule offert en attente : propriétaire, drapeau « cadeau », clé et plein dès que MTS l'a posé. */

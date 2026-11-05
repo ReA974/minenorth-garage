@@ -167,3 +167,6 @@ Les véhicules sortent **dans l'axe de la place**, jamais de travers :
   fourrière = sens du véhicule au rangement, arrondi au quart de tour. Pour fixer le sens : refaire `/vendeurzone set`,
   `/fourrierezone set`, ou `/garagezone orienter <nom>`, en regardant vers la sortie de la place.
 - Le véhicule est aussi remis à plat (sans tangage ni roulis gardés du rangement).
+
+## Véhicules offerts (05/11)
+`garage/GiftVehicles.give(joueur, item, libellé, carte)` (appelé par réflexion par le mod Bienvenue) : fait apparaître un véhicule neuf à 2 blocs devant le joueur, à son nom, avec la clé, et pose le drapeau `mnrp_cadeau` (numéro de carte d'identité) dans ses données. Le drapeau suit le véhicule au garage. Un véhicule offert **ne se revend pas** (« Vendre un véhicule » refuse). Le mod Vol refuse aussi de le crocheter. Non testé en jeu.

@@ -227,6 +227,10 @@ public final class VehicleSale {
             Msg.send(seller, "&cCe véhicule n'est plus dans ton garage.");
             return;
         }
+        if (GiftVehicles.isGift(v.nbt)) {
+            Msg.send(seller, "&cCe véhicule t'a été offert à ton arrivée : il ne se revend pas.");
+            return;
+        }
         if (buyer.getUUID().equals(seller.getUUID())) {
             Msg.send(seller, "&cTu ne peux pas te vendre un véhicule à toi-même.");
             return;

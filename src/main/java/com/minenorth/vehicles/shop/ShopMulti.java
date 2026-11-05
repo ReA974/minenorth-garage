@@ -538,6 +538,9 @@ public final class ShopMulti {
     /** Véhicules achetés en attente du plein -> essais restants. */
     private static final Map<Entity, Integer> FUEL = new HashMap<>();
 
+    /** Plein d'un véhicule neuf dans les ticks qui viennent (moteurs montés juste après l'apparition) : véhicules offerts (GiftVehicles). */
+    public static void fillLater(Entity e) { FUEL.put(e, 100); }
+
     private static void tickFuel() {
         Iterator<Map.Entry<Entity, Integer>> it = FUEL.entrySet().iterator();
         while (it.hasNext()) {

@@ -15,6 +15,7 @@ import net.minecraft.world.phys.Vec3;
  * (NBT sauvegardé tel quel) : un véhicule offert ne peut pas être vendu entre joueurs (VehicleSale) ni volé (mod Vol, même clé).
  * Appelé par réflexion par le mod Bienvenue : ne pas changer le nom ni les paramètres de {@link #give}.
  */
+@net.minecraftforge.fml.common.Mod.EventBusSubscriber(modid = VehiclesMod.MODID)
 public final class GiftVehicles {
     /** Clé des données persistantes du véhicule : numéro de carte du personnage à qui il a été offert. */
     public static final String GIFT = "mnrp_cadeau";
@@ -35,28 +36,73 @@ public final class GiftVehicles {
         double x = p.getX() + look.x * 2, y = p.getY() + 0.1, z = p.getZ() + look.z * 2;
         float yaw = MtsBridge.snap90(p.getYRot());
         if (!MtsBridge.spawnNew(level, itemId, x, y, z, (float) MtsBridge.mtsYaw(yaw), p)) return false;
-        Entity best = null;
-        double bd = Double.MAX_VALUE;
-        Vec3 c = new Vec3(x, y, z);
-        for (Entity e : level.getEntities((Entity) null, new AABB(c, c).inflate(6), MtsBridge::isVehicle)) {
-            if (MtsBridge.ownerOf(e) != null) continue;
-            double d = e.distanceToSqr(c);
-            if (d < bd) {
-                bd = d;
-                best = e;
+        // MTS peut n'ajouter l'entité au monde qu'au tick suivant : on la cherche maintenant puis pendant 2 s.
+        // Le véhicule est bien parti : on renvoie vrai (jamais un 2e véhicule si on le trouve un peu plus tard).
+        Claim c = new Claim(level, new Vec3(x, y, z), p.getUUID(), itemId, label, card == null || card.isEmpty() ? p.getUUID().toString() : card, 40);
+        if (!c.tryClaim(p.getServer())) CLAIMS.add(c);
+        return true;
+    }
+
+    /** Véhicule offert en attente : propriétaire, drapeau « cadeau », clé et plein dès que MTS l'a posé. */
+    private static final class Claim {
+        final ServerLevel level;
+        final Vec3 at;
+        final java.util.UUID player;
+        final String itemId, label, card;
+        int ticksLeft;
+
+        Claim(ServerLevel level, Vec3 at, java.util.UUID player, String itemId, String label, String card, int ticks) {
+            this.level = level;
+            this.at = at;
+            this.player = player;
+            this.itemId = itemId;
+            this.label = label;
+            this.card = card;
+            this.ticksLeft = ticks;
+        }
+
+        boolean tryClaim(net.minecraft.server.MinecraftServer server) {
+            Entity best = null;
+            double bd = Double.MAX_VALUE;
+            for (Entity e : level.getEntities((Entity) null, new AABB(at, at).inflate(6), MtsBridge::isVehicle)) {
+                if (MtsBridge.ownerOf(e) != null) continue;
+                double d = e.distanceToSqr(at);
+                if (d < bd) {
+                    bd = d;
+                    best = e;
+                }
+            }
+            if (best == null) return false;
+            MtsBridge.setOwner(best, player);
+            best.getPersistentData().putString(GIFT, card);
+            ServerPlayer p = server.getPlayerList().getPlayer(player);
+            if (p != null) {   // clé au même nom que celui que le garage donne au rangement
+                CompoundTag snap = MtsBridge.snapshot(best);
+                String keyLabel = Garage.labelOf(MtsBridge.itemId(snap), snap);
+                Garage.giveKey(p, keyLabel == null || keyLabel.isEmpty() ? label : keyLabel);
+            }
+            com.minenorth.vehicles.shop.ShopMulti.fillLater(best);   // plein (essence, ou batterie pour le skate électrique)
+            VehiclesMod.LOGGER.info("[Vehicules] {} offert (carte {}).", itemId, card);
+            return true;
+        }
+    }
+
+    private static final java.util.List<Claim> CLAIMS = new java.util.ArrayList<>();
+
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void onTick(net.minecraftforge.event.TickEvent.ServerTickEvent e) {
+        if (e.phase != net.minecraftforge.event.TickEvent.Phase.END || CLAIMS.isEmpty()) return;
+        java.util.Iterator<Claim> it = CLAIMS.iterator();
+        while (it.hasNext()) {
+            Claim c = it.next();
+            if (c.tryClaim(e.getServer())) {
+                it.remove();
+            } else if (--c.ticksLeft <= 0) {
+                it.remove();
+                VehiclesMod.LOGGER.warn("[Vehicules] Véhicule offert {} posé par MTS mais introuvable (carte {}).", c.itemId, c.card);
+                ServerPlayer p = e.getServer().getPlayerList().getPlayer(c.player);
+                if (p != null) com.minenorth.vehicles.miscs.Msg.send(p, "&cTon véhicule de bienvenue n'a pas pu être mis à ton nom. Préviens un membre du staff.");
             }
         }
-        if (best == null) {
-            VehiclesMod.LOGGER.warn("[Vehicules] Véhicule offert {} posé par MTS mais introuvable près de {}.", itemId, p.getGameProfile().getName());
-            return false;
-        }
-        MtsBridge.setOwner(best, p.getUUID());
-        best.getPersistentData().putString(GIFT, card == null || card.isEmpty() ? p.getUUID().toString() : card);
-        // clé au même nom que celui que le garage donne au rangement (elle est reprise quand on le range, rendue à la sortie)
-        CompoundTag snap = MtsBridge.snapshot(best);
-        String keyLabel = Garage.labelOf(MtsBridge.itemId(snap), snap);
-        Garage.giveKey(p, keyLabel == null || keyLabel.isEmpty() ? label : keyLabel);
-        VehiclesMod.LOGGER.info("[Vehicules] {} offert à {} (carte {}).", itemId, p.getGameProfile().getName(), card);
-        return true;
     }
 }
